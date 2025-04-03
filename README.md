@@ -1,2 +1,2 @@
 # Tailspring
-seL4 Bootloader
+seL4 thread loader
