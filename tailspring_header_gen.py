@@ -1,6 +1,7 @@
 import argparse
-import sys
 import yaml
+import json
+import subprocess
 from elftools.elf.elffile import ELFFile
 from elftools.common.exceptions import ELFError
 
@@ -27,17 +28,16 @@ class KeyValueAction(argparse.Action):
                         try:
                             result[key] = ELFFile(f)
                         except ELFError as e:
-                            print(f'Error loading elf file "{val}"\n  {e}')
-                            sys.exit(1)
+                            parser.error(f'Error loading elf file "{val}"\n  {e}')
         setattr(namespace, self.dest, result)
 
 class CapCreateOperation:
-    def __init__(self, dest, cap_type, size_bits):
-        self.dest = dest
+    def __init__(self, cap_type, dest, size_bits):
         self.cap_type = cap_type
+        self.dest = dest
         self.size_bits = size_bits
     def __str__(self):
-        return f'{{cap_create, .create_op={{{self.dest}, {self.cap_type}, {self.size_bits}}}}}'
+        return f'{{cap_create, .create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
 
 class CNodeCreateOperation:
     def __init__(self, dest, size_bits, guard):
@@ -56,13 +56,13 @@ class CapMutateOperation:
         return f'{{cap_mutate, .mutate_op={{{self.src}, {self.dest}, {self.badge}}}}}'
 
 class CapMintOperation:
-    def __init__(self, src, dest, badge, rights):
+    def __init__(self, badge, src, dest, rights):
+        self.badge = badge
         self.src = src
         self.dest = dest
-        self.badge = badge
         self.rights = rights
     def __str__(self):
-        return f'{{cap_mint, .mint_op={{{self.src}, {self.dest}, {self.badge}, {self.rights}}}}}'
+        return f'{{cap_mint, .mint_op={{{self.badge}, {self.src}, {self.dest}, {self.rights}}}}}'
 
 class CapCopyOperation:
     def __init__(self, src, dest_root, dest_index, dest_depth):
@@ -73,35 +73,46 @@ class CapCopyOperation:
     def __str__(self):
         return f'{{cap_copy, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
 
+def isValidFile(parser, arg):
+    try:
+        with open(arg, 'r') as f:
+            f.close()
+        return arg
+    except IOError:
+        parser.error(f'"{arg}" is not a valid path')
+
 def getArgs():
     parser = argparse.ArgumentParser(
         prog='Tailspring Parser',
         description='Generates C headers from a configuration file for the Tailspring thread loader')
     parser.add_argument('config_file', type=argparse.FileType('r'), help='Path to the configuration file')
+    parser.add_argument('get_sel4_info_program', type=lambda x: isValidFile(parser, x), help='Path to the compiled get_sel4_info binary')
     parser.add_argument('output_file', type=argparse.FileType('w'), help='Path to the output generated header file')
     parser.add_argument('thread_executables', nargs='*', action=KeyValueAction, help='Key-value pairs mapping executable names in the configuration file to the executable path')
     args = parser.parse_args()
     config = yaml.safe_load(args.config_file)
+    get_sel4_info_path = args.get_sel4_info_program
     output_file = args.output_file
-    return (config, output_file, args.thread_executables)
+    return (config, get_sel4_info_path, output_file, args.thread_executables)
 
 
-def addPreamble(output_string):
-    preamble = '''
+def addPreamble():
+    preamble = '''\
 #pragma once
 #include <sel4/sel4.h>
+#include <stdint.h>
 #define CAP_ALLOW_WRITE (1<<0)
 #define CAP_ALLOW_READ (1<<1)
 #define CAP_ALLOW_GRANT (1<<2)
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
-struct CapCreateOperation {seL4_Word dest;seL4_Word cap_type;seL4_Word size_bits;};
-struct CNodeCreateOperation {seL4_Word dest;seL4_Word size_bits;seL4_Word guard;};
-struct CapMintOperation {seL4_Word src;seL4_Word dest;seL4_Word badge;seL4_CapRights_t rights;};
-struct CapCopyOperation {seL4_Word src;seL4_Word dest_root;seL4_Word dest_index;seL4_Word dest_depth;};
-enum CapOperationType {cap_create,cnode_create,cap_mint,cap_copy};
-struct CapOperation {enum CapOperationType op_type;union {struct CapCreateOperation create_op;struct CNodeCreateOperation cnode_create_op;struct CapMintOperation mint_op;struct CapCopyOperation copy_op;};};
+typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOperation;
+typedef struct {uint32_t dest;uint8_t size_bits;uint8_t guard;} CNodeCreateOperation;
+typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;
+typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest_depth;} CapCopyOperation;
+typedef enum {cap_create,cnode_create,cap_mint,cap_copy} CapOperationType;
+typedef struct {CapOperationType op_type;union {CapCreateOperation create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};} CapOperation;
 '''
-    return output_string + '\n' + preamble
+    return preamble
 
 def getCapLocations(config):
     cap_locations = {}
@@ -118,7 +129,7 @@ def getCapLocations(config):
     return cap_locations
 
 
-def generateCapCreateOpList(config, cap_locations):
+def genCapCreateOpList(config, cap_locations):
     op_list = []
     # Generate creations for CNodes
     for cnode_name, cnode_info in config['cnodes'].items():
@@ -131,7 +142,7 @@ def generateCapCreateOpList(config, cap_locations):
         cap_dest = cap_locations[cap_name]
         cap_type = sel4_name_mapping[cap_type]
         cap_size = sel4_size_mapping[cap_type]
-        op_list.append(CapCreateOperation(cap_dest, cap_type, cap_size))
+        op_list.append(CapCreateOperation(cap_type, cap_dest, cap_size))
     return op_list
 
 def getRightsString(rights_list):
@@ -143,7 +154,10 @@ def getRightsString(rights_list):
     
     return '&'.join(rights_flags) if len(rights_flags) else 0
 
-def generateCapMintOpList(config, cap_locations):
+def formatDefine(name, value):
+    return f'#define {name} ({value})\n'
+
+def genCapMintOpList(config, cap_locations):
     op_list = []
     for cap_name, mod_info in config['cap_modifications'].items():
         original = mod_info['original']
@@ -152,10 +166,10 @@ def generateCapMintOpList(config, cap_locations):
         rights = mod_info['rights']
         rights_string = getRightsString(rights)
         badge = mod_info['badge'] if 'badge' in mod_info else 0
-        op_list.append(CapMintOperation(src, dest, badge, rights_string))
+        op_list.append(CapMintOperation(badge, src, dest, rights_string))
     return op_list
 
-def generateCapCopyOpList(config, cap_locations):
+def genCapCopyOpList(config, cap_locations):
     op_list = []
     for cnode_name, cnode_info in config['cnodes'].items():
         for cap_pos, cap_name in cnode_info.items():
@@ -168,33 +182,50 @@ def generateCapCopyOpList(config, cap_locations):
     return op_list
         
 
-def generateCapOpList(config, cap_locations):
+def genCapOpList(config, cap_locations):
     op_list = []
-    op_list += generateCapCreateOpList(config, cap_locations)
-    op_list += generateCapMintOpList(config, cap_locations)
-    op_list += generateCapCopyOpList(config, cap_locations)
+    op_list += genCapCreateOpList(config, cap_locations)
+    op_list += genCapMintOpList(config, cap_locations)
+    op_list += genCapCopyOpList(config, cap_locations)
     return op_list
 
-def getTailspringHeader(config, thread_executables):
+def genTailspringHeader(config, thread_executables):
     cap_locations = getCapLocations(config)
     
-    output_string = ''
-    output_string = addPreamble(output_string)
+    output_string = addPreamble()
 
-    output_string += '\nstruct CapOperation cap_operations[] = {\n'
+    output_string += '\nCapOperation cap_operations[] = {\n'
 
-    op_list = generateCapOpList(config, cap_locations)
+    op_list = genCapOpList(config, cap_locations)
     op_string = ',\n'.join([str(op) for op in op_list])
     output_string += op_string
 
     output_string += '\n};\n'
 
+    num_operations = len(op_list)
+    num_create_operations = sum([1 if type(op) in (CapCreateOperation, CNodeCreateOperation) else 0 for op in op_list])
+    output_string += formatDefine('NUM_OPERATIONS', num_operations)
+    output_string += formatDefine('NUM_CREATE_OPERATIONS', num_create_operations)
+
+    num_slots_needed = max(cap_locations.values()) if len(cap_locations) else 0
+    output_string += formatDefine('NUM_SLOTS_NEEDED', num_slots_needed)
+
+    memory_required = 0
+    for op in op_list:
+        if op not in (CapCreateOperation, CNodeCreateOperation):
+            continue
+        memory_required = 0
+
     return output_string
 
 if __name__ == '__main__':
-    
-    config, output_file, thread_executables = getArgs()
+    config, get_sel4_info_path, output_file, thread_executables = getArgs()
 
-    header_string = getTailspringHeader(config, thread_executables)
+    sel4_info = json.loads(subprocess.check_output(f"{get_sel4_info_path}", shell=False, encoding='utf-8'))
+    for key, value in sel4_info.items():
+        print(f"  {key}: {value}")
+
+    header_string = genTailspringHeader(config, thread_executables)
     output_file.write(header_string)
+
 
