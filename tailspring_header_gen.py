@@ -159,6 +159,9 @@ def getRightsString(rights_list):
 def formatDefine(name, value):
     return f'#define {name} ({value})\n'
 
+def formatDefineWord(name, value):
+    return f'#define {name} ((seL4_Word){value})\n'
+
 def genCapMintOpList(config, cap_locations):
     op_list = []
     for cap_name, mod_info in config['cap_modifications'].items():
@@ -215,13 +218,14 @@ def genTailspringHeader(config, thread_executables):
     output_string += formatDefine('NUM_CREATE_OPERATIONS', num_create_operations)
 
     num_slots_needed = max(cap_locations.values()) if len(cap_locations) else 0
-    output_string += formatDefine('NUM_SLOTS_NEEDED', num_slots_needed)
+    output_string += formatDefineWord('SLOTS_NEEDED', num_slots_needed)
 
-    memory_required = 0
+    bytes_needed = 0
     for op in cap_op_list:
-        if op not in (CapCreateOperation, CNodeCreateOperation):
+        if type(op) not in (CapCreateOperation, CNodeCreateOperation):
             continue
-        memory_required = 0
+        bytes_needed += 1 << (op.size_bits)
+    output_string += formatDefineWord('BYTES_NEEDED', bytes_needed)
 
     return output_string
 

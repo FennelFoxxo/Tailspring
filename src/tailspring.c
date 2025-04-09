@@ -40,19 +40,21 @@ void printOp(const CapOperation* c) {
 int main() {
 
     printf("Hello world!\n");
-    printf("size: %lu\n", sizeof(CapOperation));
+    printf("Slots needed: %lu\n", SLOTS_NEEDED);
+    printf("Bytes needed: %lu\n", BYTES_NEEDED);
+
     loadBootInfo();
-    if (NUM_SLOTS_NEEDED > num_empty_slots) {
-        printf("Number of slots needed (%d) is greater than number of empty slots (%lu)!\n", NUM_SLOTS_NEEDED, num_empty_slots);
+    if (SLOTS_NEEDED > num_empty_slots) {
+        printf("Number of slots needed (%lu) is greater than number of empty slots (%lu)!\n", SLOTS_NEEDED, num_empty_slots);
         halt();
     }
-    
+
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         printOp(&cap_operations[i]);
-        
     }
+
     printf("\n\n\n");
-    
+
     halt();
     return 0;
 }
