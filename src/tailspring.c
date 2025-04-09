@@ -56,17 +56,17 @@ void loadBootInfo() {
 
 void printOp(const CapOperation* c) {
     switch (c->op_type) {
-        case cap_create:
-            printf("Create (size=%u) (dest=%u)\n", c->create_op.size_bits, c->create_op.dest);
+        case CAP_CREATE:
+            printf("Create (size=%u) (dest=%u)\n", c->cap_create_op.size_bits, c->cap_create_op.dest);
             break;
             
-        case cnode_create:
+        case CNODE_CREATE:
             printf("CNode create (size=%u) (guard=%u) (dest=%u)\n", c->cnode_create_op.slot_bits, c->cnode_create_op.guard, c->cnode_create_op.dest);
             break;
-        case cap_mint:
+        case CAP_MINT:
             printf("Mint (src=%u) (dest=%u) (badge=%lu) (rights=%u)\n", c->mint_op.src, c->mint_op.dest, c->mint_op.badge, c->mint_op.rights);
             break;
-        case cap_copy:
+        case CAP_COPY:
             printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n", c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
             break;
     }
@@ -75,12 +75,12 @@ void printOp(const CapOperation* c) {
 bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
     seL4_Error error;
     
-    if (cap_op->op_type == cap_create) {
+    if (cap_op->op_type == CAP_CREATE) {
         error = seL4_Untyped_Retype(untyped_cptr,
-                                    cap_op->create_op.cap_type,
-                                    cap_op->create_op.size_bits,
+                                    cap_op->cap_create_op.cap_type,
+                                    cap_op->cap_create_op.size_bits,
                                     seL4_CapInitThreadCNode, 0, 0,
-                                    first_empty_slot + cap_op->create_op.dest,
+                                    first_empty_slot + cap_op->cap_create_op.dest,
                                     1);
         return (error == seL4_NoError);
     }

@@ -33,7 +33,7 @@ class CapCreateOperation:
         self.dest = dest
         self.size_bits = size_bits
     def __str__(self):
-        return f'{{cap_create, .create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
+        return f'{{CAP_CREATE, .cap_create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
 
 class CNodeCreateOperation:
     def __init__(self, dest, slot_bits, guard):
@@ -42,15 +42,7 @@ class CNodeCreateOperation:
         self.size_bits = slot_bits + sel4_constants['seL4_SlotBits']
         self.guard = guard
     def __str__(self):
-        return f'{{cnode_create, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
-
-class CapMutateOperation:
-    def __init__(self, src, dest, badge):
-        self.src = src
-        self.dest = dest
-        self.badge = badge
-    def __str__(self):
-        return f'{{cap_mutate, .mutate_op={{{self.src}, {self.dest}, {self.badge}}}}}'
+        return f'{{CNODE_CREATE, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
 
 class CapMintOperation:
     def __init__(self, badge, src, dest, rights):
@@ -59,7 +51,7 @@ class CapMintOperation:
         self.dest = dest
         self.rights = rights
     def __str__(self):
-        return f'{{cap_mint, .mint_op={{{self.badge}, {self.src}, {self.dest}, {self.rights}}}}}'
+        return f'{{CAP_MINT, .mint_op={{{self.badge}, {self.src}, {self.dest}, {self.rights}}}}}'
 
 class CapCopyOperation:
     def __init__(self, src, dest_root, dest_index, dest_depth):
@@ -68,7 +60,7 @@ class CapCopyOperation:
         self.dest_index = dest_index
         self.dest_depth = dest_depth
     def __str__(self):
-        return f'{{cap_copy, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
+        return f'{{CAP_COPY, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
 
 def isValidFile(parser, arg):
     try:
@@ -108,14 +100,14 @@ typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOp
 typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOperation;
 typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;
 typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest_depth;} CapCopyOperation;
-typedef enum {cap_create,cnode_create,cap_mint,cap_copy} CapOperationType;
-typedef struct {CapOperationType op_type;union {CapCreateOperation create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};} CapOperation;
+typedef enum {CAP_CREATE,CNODE_CREATE,CAP_MINT,CAP_COPY} CapOperationType;
+typedef struct {CapOperationType op_type;union {CapCreateOperation cap_create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};} CapOperation;
 '''
     preamble += formatDefine("CAP_ALLOW_WRITE",         "1<<0")
     preamble += formatDefine("CAP_ALLOW_READ",          "1<<1")
     preamble += formatDefine("CAP_ALLOW_GRANT",         "1<<2")
     preamble += formatDefine("CAP_ALLOW_GRANT_REPLY",   "1<<3")
-    preamble += formatDefine("CREATE_OP_SIZE_BITS(cap_op)", "cap_op.op_type == cap_create ? cap_op.create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits")
+    preamble += formatDefine("CREATE_OP_SIZE_BITS(cap_op)", "cap_op.op_type == CAP_CREATE ? cap_op.cap_create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits")
     return preamble
 
 def getCapLocations(config):
