@@ -100,6 +100,32 @@ bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
     return (error == seL4_NoError);
 }
 
+bool copyObject(CapOperation* cap_op) {
+    seL4_Error error = seL4_CNode_Copy( first_empty_slot + cap_op->copy_op.dest_root,
+                                        cap_op->copy_op.dest_index,
+                                        cap_op->copy_op.dest_depth,
+                                        seL4_CapInitThreadCNode,
+                                        first_empty_slot + cap_op->copy_op.src,
+                                        seL4_WordBits, seL4_AllRights);
+    return (error == seL4_NoError);
+}
+
+bool mintObject(CapOperation* cap_op) {
+    seL4_CapRights_t decoded_rights = seL4_CapRights_new(   cap_op->mint_op.rights & CAP_ALLOW_GRANT_REPLY != 0,
+                                                            cap_op->mint_op.rights & CAP_ALLOW_GRANT != 0,
+                                                            cap_op->mint_op.rights & CAP_ALLOW_READ != 0,
+                                                            cap_op->mint_op.rights & CAP_ALLOW_WRITE != 0);
+
+    seL4_Error error = seL4_CNode_Mint( seL4_CapInitThreadCNode,
+                                        first_empty_slot + cap_op->mint_op.dest,
+                                        seL4_WordBits,
+                                        seL4_CapInitThreadCNode,
+                                        first_empty_slot + cap_op->mint_op.src,
+                                        seL4_WordBits, decoded_rights,
+                                        cap_op->mint_op.badge);
+    return (error == seL4_NoError);
+}
+
 bool createObjects() {
     seL4_Word best_fit_index, best_fit_size, size_required;
     for (seL4_Word op_index = 0; op_index < NUM_CREATE_OPERATIONS; op_index++) {
@@ -131,6 +157,24 @@ bool createObjects() {
     return true;
 }
 
+bool copyAndMintObjects() {
+    bool success;
+    for (seL4_Word op_index = NUM_CREATE_OPERATIONS; op_index < NUM_OPERATIONS; op_index++) {
+        CapOperation* cap_op = &cap_operations[op_index];
+        switch (cap_op->op_type) {
+            case CAP_COPY:
+                success = copyObject(cap_op);
+                break;
+            case CAP_MINT:
+                success = mintObject(cap_op);
+                break;
+            default:
+                break;
+        }
+        if (!success) return false;
+    }
+    return true;
+}
 
 int main() {
 
@@ -151,6 +195,10 @@ int main() {
     }
 
     if (!createObjects()) {
+        printf("Failed to allocate objects\n");
+    }
+
+    if (!copyAndMintObjects()) {
         printf("Failed to allocate objects\n");
     }
 
