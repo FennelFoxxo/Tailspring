@@ -196,10 +196,12 @@ int main() {
 
     if (!createObjects()) {
         printf("Failed to allocate objects\n");
+        halt();
     }
 
     if (!copyAndMintObjects()) {
-        printf("Failed to allocate objects\n");
+        printf("Failed to copy or mint objects\n");
+        halt();
     }
 
     printf("\n\n\n");
