@@ -11,11 +11,7 @@ sel4_name_mapping = {
     'endpoint': 'seL4_EndpointObject'
 }
 
-sel4_size_mapping = {
-    'seL4_TCBObject': 'seL4_TCBBits',
-    'seL4_X86_4K': 'seL4_PageBits',
-    'seL4_EndpointObject': 'seL4_EndpointBits'
-}
+sel4_constants = {}
 
 class KeyValueAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -40,12 +36,13 @@ class CapCreateOperation:
         return f'{{cap_create, .create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
 
 class CNodeCreateOperation:
-    def __init__(self, dest, size_bits, guard):
+    def __init__(self, dest, slot_bits, guard):
         self.dest = dest
-        self.size_bits = size_bits
+        self.slot_bits = slot_bits
+        self.size_bits = slot_bits + sel4_constants['seL4_SlotBits']
         self.guard = guard
     def __str__(self):
-        return f'{{cnode_create, .cnode_create_op={{{self.dest}, {self.size_bits}, {self.guard}}}}}'
+        return f'{{cnode_create, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
 
 class CapMutateOperation:
     def __init__(self, src, dest, badge):
@@ -85,15 +82,16 @@ def getArgs():
     parser = argparse.ArgumentParser(
         prog='Tailspring Parser',
         description='Generates C headers from a configuration file for the Tailspring thread loader')
+    
     parser.add_argument('config_file', type=argparse.FileType('r'), help='Path to the configuration file')
     parser.add_argument('get_sel4_info_program', type=lambda x: isValidFile(parser, x), help='Path to the compiled get_sel4_info binary')
     parser.add_argument('output_file', type=argparse.FileType('w'), help='Path to the output generated header file')
     parser.add_argument('thread_executables', nargs='*', action=KeyValueAction, help='Key-value pairs mapping executable names in the configuration file to the executable path')
+    
     args = parser.parse_args()
+    
     config = yaml.safe_load(args.config_file)
-    get_sel4_info_path = args.get_sel4_info_program
-    output_file = args.output_file
-    return (config, get_sel4_info_path, output_file, args.thread_executables)
+    return (config, args.get_sel4_info_program, args.output_file, args.thread_executables)
 
 
 def addPreamble():
@@ -106,7 +104,7 @@ def addPreamble():
 #define CAP_ALLOW_GRANT (1<<2)
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOperation;
-typedef struct {uint32_t dest;uint8_t size_bits;uint8_t guard;} CNodeCreateOperation;
+typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOperation;
 typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;
 typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest_depth;} CapCopyOperation;
 typedef enum {cap_create,cnode_create,cap_mint,cap_copy} CapOperationType;
@@ -128,6 +126,8 @@ def getCapLocations(config):
         index += 1
     return cap_locations
 
+def getObjectSize(object_type):
+    return sel4_constants['object_sizes'][object_type]
 
 def genCapCreateOpList(config, cap_locations):
     op_list = []
@@ -141,8 +141,10 @@ def genCapCreateOpList(config, cap_locations):
     for cap_name, cap_type in config['caps'].items():
         cap_dest = cap_locations[cap_name]
         cap_type = sel4_name_mapping[cap_type]
-        cap_size = sel4_size_mapping[cap_type]
+        cap_size = getObjectSize(cap_type)
         op_list.append(CapCreateOperation(cap_type, cap_dest, cap_size))
+    # Sort so that biggest operations are at the beginning
+    op_list.sort(key = lambda op: op.size_bits, reverse=True)
     return op_list
 
 def getRightsString(rights_list):
@@ -189,21 +191,26 @@ def genCapOpList(config, cap_locations):
     op_list += genCapCopyOpList(config, cap_locations)
     return op_list
 
+def convertCapOpListToC(cap_op_list):
+    output_string = '\nCapOperation cap_operations[] = {\n'
+
+    op_string = ',\n'.join([str(op) for op in cap_op_list])
+    output_string += op_string
+
+    output_string += '\n};\n'
+    return output_string
+
+
 def genTailspringHeader(config, thread_executables):
     cap_locations = getCapLocations(config)
     
     output_string = addPreamble()
 
-    output_string += '\nCapOperation cap_operations[] = {\n'
+    cap_op_list = genCapOpList(config, cap_locations)
+    output_string += convertCapOpListToC(cap_op_list)
 
-    op_list = genCapOpList(config, cap_locations)
-    op_string = ',\n'.join([str(op) for op in op_list])
-    output_string += op_string
-
-    output_string += '\n};\n'
-
-    num_operations = len(op_list)
-    num_create_operations = sum([1 if type(op) in (CapCreateOperation, CNodeCreateOperation) else 0 for op in op_list])
+    num_operations = len(cap_op_list)
+    num_create_operations = sum([1 if type(op) in (CapCreateOperation, CNodeCreateOperation) else 0 for op in cap_op_list])
     output_string += formatDefine('NUM_OPERATIONS', num_operations)
     output_string += formatDefine('NUM_CREATE_OPERATIONS', num_create_operations)
 
@@ -211,7 +218,7 @@ def genTailspringHeader(config, thread_executables):
     output_string += formatDefine('NUM_SLOTS_NEEDED', num_slots_needed)
 
     memory_required = 0
-    for op in op_list:
+    for op in cap_op_list:
         if op not in (CapCreateOperation, CNodeCreateOperation):
             continue
         memory_required = 0
@@ -221,9 +228,8 @@ def genTailspringHeader(config, thread_executables):
 if __name__ == '__main__':
     config, get_sel4_info_path, output_file, thread_executables = getArgs()
 
-    sel4_info = json.loads(subprocess.check_output(f"{get_sel4_info_path}", shell=False, encoding='utf-8'))
-    for key, value in sel4_info.items():
-        print(f"  {key}: {value}")
+    sel4_constants = json.loads(subprocess.check_output(f"{get_sel4_info_path}", shell=False, encoding='utf-8'))
+    
 
     header_string = genTailspringHeader(config, thread_executables)
     output_file.write(header_string)
