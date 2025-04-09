@@ -72,7 +72,7 @@ void printOp(const CapOperation* c) {
     }
 }
 
-bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
+bool doCreateOp(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
     seL4_Error error;
 
     if (cap_op->op_type == CAP_CREATE) {
@@ -100,7 +100,7 @@ bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
     return (error == seL4_NoError);
 }
 
-bool copyObject(CapOperation* cap_op) {
+bool doCopyOp(CapOperation* cap_op) {
     seL4_Error error = seL4_CNode_Copy( first_empty_slot + cap_op->copy_op.dest_root,
                                         cap_op->copy_op.dest_index,
                                         cap_op->copy_op.dest_depth,
@@ -110,7 +110,7 @@ bool copyObject(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
-bool mintObject(CapOperation* cap_op) {
+bool doMintOp(CapOperation* cap_op) {
     seL4_CapRights_t decoded_rights = seL4_CapRights_new(   cap_op->mint_op.rights & CAP_ALLOW_GRANT_REPLY != 0,
                                                             cap_op->mint_op.rights & CAP_ALLOW_GRANT != 0,
                                                             cap_op->mint_op.rights & CAP_ALLOW_READ != 0,
@@ -149,7 +149,7 @@ bool createObjects() {
         if (best_fit_size == ~0llu) return false;
 
         printf("Allocating object of size %lu in region %lu of size %lu\n", size_required, best_fit_index, best_fit_size);
-        if (!createObject(&cap_operations[op_index], non_device_untyped_array[best_fit_index].cptr)) return false;
+        if (!doCreateOp(&cap_operations[op_index], non_device_untyped_array[best_fit_index].cptr)) return false;
 
         // Mark untyped as containing less memory
         non_device_untyped_array[best_fit_index].bytes_left -= size_required;
@@ -163,10 +163,10 @@ bool copyAndMintObjects() {
         CapOperation* cap_op = &cap_operations[op_index];
         switch (cap_op->op_type) {
             case CAP_COPY:
-                success = copyObject(cap_op);
+                success = doCopyOp(cap_op);
                 break;
             case CAP_MINT:
-                success = mintObject(cap_op);
+                success = doMintOp(cap_op);
                 break;
             default:
                 break;
