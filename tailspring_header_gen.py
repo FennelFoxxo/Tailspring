@@ -93,16 +93,17 @@ def getArgs():
     config = yaml.safe_load(args.config_file)
     return (config, args.get_sel4_info_program, args.output_file, args.thread_executables)
 
+def formatDefine(name, value):
+    return f'#define {name} ({value})\n'
+
+def formatDefineWord(name, value):
+    return f'#define {name} ((seL4_Word){value})\n'
 
 def addPreamble():
     preamble = '''\
 #pragma once
 #include <sel4/sel4.h>
 #include <stdint.h>
-#define CAP_ALLOW_WRITE (1<<0)
-#define CAP_ALLOW_READ (1<<1)
-#define CAP_ALLOW_GRANT (1<<2)
-#define CAP_ALLOW_GRANT_REPLY (1<<3)
 typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOperation;
 typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOperation;
 typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;
@@ -110,6 +111,11 @@ typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest
 typedef enum {cap_create,cnode_create,cap_mint,cap_copy} CapOperationType;
 typedef struct {CapOperationType op_type;union {CapCreateOperation create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};} CapOperation;
 '''
+    preamble += formatDefine("CAP_ALLOW_WRITE",         "1<<0")
+    preamble += formatDefine("CAP_ALLOW_READ",          "1<<1")
+    preamble += formatDefine("CAP_ALLOW_GRANT",         "1<<2")
+    preamble += formatDefine("CAP_ALLOW_GRANT_REPLY",   "1<<3")
+    preamble += formatDefine("CREATE_OP_SIZE_BITS(cap_op)", "cap_op.op_type == cap_create ? cap_op.create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits")
     return preamble
 
 def getCapLocations(config):
@@ -155,12 +161,6 @@ def getRightsString(rights_list):
     rights_flags.append('CAP_ALLOW_GRANT_REPLY') if 'grant_reply' in rights_list else None
     
     return '&'.join(rights_flags) if len(rights_flags) else 0
-
-def formatDefine(name, value):
-    return f'#define {name} ({value})\n'
-
-def formatDefineWord(name, value):
-    return f'#define {name} ((seL4_Word){value})\n'
 
 def genCapMintOpList(config, cap_locations):
     op_list = []
