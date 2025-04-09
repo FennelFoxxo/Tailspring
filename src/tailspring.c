@@ -41,11 +41,11 @@ void loadUntypedInfo(seL4_Word untyped_index) {
 
 void loadBootInfo() {
     boot_info = platsupport_get_bootinfo();
-    
+
     // Get slot info
     first_empty_slot = boot_info->empty.start;
     num_empty_slots = boot_info->empty.end - first_empty_slot;
-    
+
     // Get untyped info
     first_untyped = boot_info->untyped.start;
     num_untyped = boot_info->untyped.end - first_untyped;
@@ -59,7 +59,7 @@ void printOp(const CapOperation* c) {
         case CAP_CREATE:
             printf("Create (size=%u) (dest=%u)\n", c->cap_create_op.size_bits, c->cap_create_op.dest);
             break;
-            
+
         case CNODE_CREATE:
             printf("CNode create (size=%u) (guard=%u) (dest=%u)\n", c->cnode_create_op.slot_bits, c->cnode_create_op.guard, c->cnode_create_op.dest);
             break;
@@ -74,7 +74,7 @@ void printOp(const CapOperation* c) {
 
 bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
     seL4_Error error;
-    
+
     if (cap_op->op_type == CAP_CREATE) {
         error = seL4_Untyped_Retype(untyped_cptr,
                                     cap_op->cap_create_op.cap_type,
@@ -84,30 +84,29 @@ bool createObject(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
                                     1);
         return (error == seL4_NoError);
     }
-    
+
     // If we're creating a CNode then we need to first create it into slot 0,
     // then mutate it into its destination slot to set its guard
-    
     error = seL4_Untyped_Retype(untyped_cptr,
                                 seL4_CapTableObject,
                                 cap_op->cnode_create_op.slot_bits,
                                 seL4_CapInitThreadCNode, 0, 0,
                                 first_empty_slot, 1);
     if (error != seL4_NoError) return false;
-    
+
     error = seL4_CNode_Mutate(  seL4_CapInitThreadCNode, first_empty_slot + cap_op->cnode_create_op.dest, seL4_WordBits,
                                 seL4_CapInitThreadCNode, first_empty_slot, seL4_WordBits,
                                 cap_op->cnode_create_op.guard);
     return (error == seL4_NoError);
 }
 
-bool allocateObjects() {
+bool createObjects() {
     seL4_Word best_fit_index, best_fit_size, size_required;
     for (seL4_Word op_index = 0; op_index < NUM_CREATE_OPERATIONS; op_index++) {
         // Find smallest region which fits this object
         best_fit_size = ~0llu;
         size_required = 1llu << CREATE_OP_SIZE_BITS(cap_operations[op_index]);
-        
+
         for (seL4_Word untyped_index = 0; untyped_index < num_non_device_untyped; untyped_index++) {
             seL4_Word untyped_size = non_device_untyped_array[untyped_index].bytes_left;
             // If the untyped is big enough for this object
@@ -119,18 +118,16 @@ bool allocateObjects() {
                 }
             }
         }
-        
+
         // Region of sufficient size not found
         if (best_fit_size == ~0llu) return false;
-        
+
         printf("Allocating object of size %lu in region %lu of size %lu\n", size_required, best_fit_index, best_fit_size);
-        createObject(&cap_operations[op_index], non_device_untyped_array[best_fit_index].cptr);
-        
-        
+        if (!createObject(&cap_operations[op_index], non_device_untyped_array[best_fit_index].cptr)) return false;
+
         // Mark untyped as containing less memory
         non_device_untyped_array[best_fit_index].bytes_left -= size_required;
     }
-    
     return true;
 }
 
@@ -140,7 +137,7 @@ int main() {
     printf("Hello world!\n");
     printf("Slots needed: %lu\n", SLOTS_NEEDED);
     printf("Bytes needed: %lu\n", BYTES_NEEDED);
-    
+
     printf("Test: %llu\n", 1llu << 35);
 
     loadBootInfo();
@@ -152,12 +149,14 @@ int main() {
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         printOp(&cap_operations[i]);
     }
-    
-    if (!allocateObjects()) {
+
+    if (!createObjects()) {
         printf("Failed to allocate objects\n");
     }
 
     printf("\n\n\n");
+
+    seL4_DebugDumpScheduler();
 
     halt();
     return 0;
