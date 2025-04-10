@@ -31,7 +31,7 @@ class OutputFileWrapper:
 
 seL4_constants = SeL4ConstantsWrapper()
 config = ConfigWrapper()
-thread_executables = None
+thread_executables = {}
 output_file = OutputFileWrapper()
 
 
@@ -45,7 +45,8 @@ def initializeGlobals(config_file, get_sel4_info_path, output_file_, thread_exec
     seL4_constants.updateDict(seL4_constants_dict)
     
     output_file.updateFileHandle(output_file_)
-    
-    thread_executables = thread_executables_dict
+
+    for key, filename in thread_executables_dict.items():
+        thread_executables[key] = ts_types.ThreadData(filename)
 
 __all__ = ['seL4_constants', 'config', 'thread_executables', 'output_file', 'initializeGlobals']

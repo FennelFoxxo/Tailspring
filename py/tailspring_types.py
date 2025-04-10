@@ -1,5 +1,7 @@
 from tailspring_globals import *
 
+from elftools.elf.elffile import ELFFile
+
 class CapCreateOperation:
     def __init__(self, cap_type, dest, size_bits):
         self.cap_type = cap_type
@@ -94,5 +96,33 @@ class CapLocations:
     def __getitem__(self, cap_name):
         return self.cap_locations[cap_name]
 
+class ThreadData:
+    def __init__(self, filename):
+        # This needs to be kept open for program lifetime to read segments
+        self.f = open(filename, 'rb')
+        self.elf_file = ELFFile(self.f)
+        self.load_segments = list(self.elf_file.iter_segments('PT_LOAD'))
 
-__all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations']
+    def getNumSegments(self):
+        return len(self.load_segments)
+    
+    def getSegmentData(self, segment_index):
+        return self.load_segments[segment_index].data()
+    
+    def formatSegmentDataAsC(self, segment_index, var_name):
+        chunk_size = 4096
+        output_string = f'uint8_t {var_name}[] = {{'
+        segment_data_to_write = self.getSegmentData(segment_index)
+        first = True
+        for i in range(0, len(segment_data_to_write), chunk_size):
+            if not first:
+                output_string += ','
+            else:
+                first = False
+            output_string += ','.join(map(str, segment_data_to_write[i:i+chunk_size]))
+        output_string += '};\n'
+        return output_string
+
+
+
+__all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations', 'ThreadData']

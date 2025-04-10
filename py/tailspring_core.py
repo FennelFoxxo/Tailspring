@@ -106,12 +106,14 @@ def genCapOpList(config, cap_locations):
     return op_list
 
 def getFramesRequired(config, thread_executables):
-    print(thread_executables)
+    output_strings = []
+    for key, thread_data in thread_executables.items():
+        for i in range(thread_data.getNumSegments()):
+            output_strings.append(thread_data.formatSegmentDataAsC(i, f'segment_data_{key}_{i}'))
+    return ''.join(output_strings)
 
 def genTailspringHeader(config, thread_executables):
     cap_locations = getCapLocations(config)
-    
-    getFramesRequired(config, thread_executables)
     
     output_string = addPreamble()
 
@@ -125,5 +127,7 @@ def genTailspringHeader(config, thread_executables):
     output_string += formatDefineWord('SLOTS_REQUIRED', num_slots_required)
 
     output_string += formatDefineWord('BYTES_REQUIRED', cap_op_list.getBytesRequired())
+    
+    output_string += getFramesRequired(config, thread_executables)
 
     return output_string

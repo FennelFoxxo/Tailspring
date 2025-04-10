@@ -12,11 +12,7 @@ class KeyValueAction(argparse.Action):
             for value in values:
                 if '=' in value:
                     key, val = value.split('=', 1)
-                    with open(val, 'rb') as f:
-                        try:
-                            result[key] = ELFFile(f)
-                        except ELFError as e:
-                            parser.error(f'Error loading elf file "{val}"\n  {e}')
+                    result[key] = val
         setattr(namespace, self.dest, result)
 
 def isValidFile(parser, arg):
@@ -43,7 +39,6 @@ def processArgs():
 
 if __name__ == '__main__':
     processArgs()
-    print(output_file)
 
     header_string = ts_core.genTailspringHeader(config, thread_executables)
     output_file.write(header_string)
