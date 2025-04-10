@@ -52,9 +52,15 @@ void endDict() {
 
 int main() {
     printf("{");
+
+    {
+        startDict("literals");
         
-    outputExpr(sizeof(seL4_Word));
-    outputExpr(seL4_SlotBits);
+        outputExpr(seL4_WordBits);
+        outputExpr(seL4_SlotBits);
+        
+        endDict();
+    }
     
     {
         startDict("object_sizes");

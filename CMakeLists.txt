@@ -19,7 +19,13 @@ set(TAILSPRING_CONFIG_PATH "${RUNTIME_CONFIGS_DIR}/${TAILSPRING_CONFIG_FILENAME}
 
 file(MAKE_DIRECTORY "${TAILSPRING_GENERATED_DIR}")
 
-set(TAILSPRING_HEADER_GEN_PYTHON_SCRIPT "${TAILSPRING_PROJECT_DIR}/tailspring_header_gen.py")
+set(TAILSPRING_PYTHON_DIR "${TAILSPRING_PROJECT_DIR}/py")
+set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/tailspring_gen.py")
+list(APPEND TAILSPRING_PYTHON_DEPENDS
+    tailspring_gen.py tailspring_types.py tailspring_globals.py
+)
+list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
+
 set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_GENERATED_DIR}/tailspring_gen_config.h")
 
 # Generate C program to print out sel4 object sizes
@@ -30,9 +36,9 @@ target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf)
 # Use python script to generate header file
 add_custom_command(
     OUTPUT  "${TAILSPRING_GEN_HEADER_PATH}"
-    COMMAND ${Python3_EXECUTABLE} "${TAILSPRING_HEADER_GEN_PYTHON_SCRIPT}"
+    COMMAND ${Python3_EXECUTABLE} "${TAILSPRING_PYTHON_SCRIPT}"
         "${TAILSPRING_CONFIG_PATH}" "$<TARGET_FILE:tailspring_get_sel4_info>" "${TAILSPRING_GEN_HEADER_PATH}" ${TAILSPRING_THREAD_DICT}
-    DEPENDS "${TAILSPRING_CONFIG_PATH}" "${TAILSPRING_HEADER_GEN_PYTHON_SCRIPT}" "${TAILSPRING_GET_SEL4_INFO_PATH}" tailspring_get_sel4_info
+    DEPENDS "${TAILSPRING_CONFIG_PATH}" "${TAILSPRING_GET_SEL4_INFO_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info
     COMMENT "Generating Tailspring header file"
     COMMAND_EXPAND_LISTS
 )

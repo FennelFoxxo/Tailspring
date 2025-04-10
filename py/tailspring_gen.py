@@ -1,17 +1,15 @@
 import argparse
-import yaml
-import json
-import subprocess
 from elftools.elf.elffile import ELFFile
 from elftools.common.exceptions import ELFError
+
+from tailspring_types import *
+from tailspring_globals import *
 
 sel4_name_mapping = {
     'tcb': 'seL4_TCBObject',
     'frame': 'seL4_X86_4K',
     'endpoint': 'seL4_EndpointObject'
 }
-
-sel4_constants = {}
 
 class KeyValueAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -27,41 +25,6 @@ class KeyValueAction(argparse.Action):
                             parser.error(f'Error loading elf file "{val}"\n  {e}')
         setattr(namespace, self.dest, result)
 
-class CapCreateOperation:
-    def __init__(self, cap_type, dest, size_bits):
-        self.cap_type = cap_type
-        self.dest = dest
-        self.size_bits = size_bits
-    def __str__(self):
-        return f'{{CAP_CREATE, .cap_create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
-
-class CNodeCreateOperation:
-    def __init__(self, dest, slot_bits, guard):
-        self.dest = dest
-        self.slot_bits = slot_bits
-        self.size_bits = slot_bits + sel4_constants['seL4_SlotBits']
-        self.guard = guard
-    def __str__(self):
-        return f'{{CNODE_CREATE, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
-
-class CapMintOperation:
-    def __init__(self, badge, src, dest, rights):
-        self.badge = badge
-        self.src = src
-        self.dest = dest
-        self.rights = rights
-    def __str__(self):
-        return f'{{CAP_MINT, .mint_op={{{self.badge}, {self.src}, {self.dest}, {self.rights}}}}}'
-
-class CapCopyOperation:
-    def __init__(self, src, dest_root, dest_index, dest_depth):
-        self.src = src
-        self.dest_root = dest_root
-        self.dest_index = dest_index
-        self.dest_depth = dest_depth
-    def __str__(self):
-        return f'{{CAP_COPY, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
-
 def isValidFile(parser, arg):
     try:
         with open(arg, 'r') as f:
@@ -70,7 +33,7 @@ def isValidFile(parser, arg):
     except IOError:
         parser.error(f'"{arg}" is not a valid path')
 
-def getArgs():
+def processArgs():
     parser = argparse.ArgumentParser(
         prog='Tailspring Parser',
         description='Generates C headers from a configuration file for the Tailspring thread loader')
@@ -82,8 +45,7 @@ def getArgs():
     
     args = parser.parse_args()
     
-    config = yaml.safe_load(args.config_file)
-    return (config, args.get_sel4_info_program, args.output_file, args.thread_executables)
+    initializeGlobals(args.config_file, args.get_sel4_info_program, args.output_file, args.thread_executables)
 
 def formatDefine(name, value):
     return f'#define {name} ({value})\n'
@@ -113,30 +75,30 @@ typedef struct {CapOperationType op_type;union {CapCreateOperation cap_create_op
 def getCapLocations(config):
     cap_locations = {}
     index = 1 # Start at 1 since 0 is used as temp slot
-    for key in config['cnodes']:
+    for key in config.cnodes:
         cap_locations[key] = index
         index += 1
-    for key in config['caps']:
+    for key in config.caps:
         cap_locations[key] = index
         index += 1
-    for key in config['cap_modifications']:
+    for key in config.cap_modifications:
         cap_locations[key] = index
         index += 1
     return cap_locations
 
 def getObjectSize(object_type):
-    return sel4_constants['object_sizes'][object_type]
+    return seL4_constants.object_sizes[object_type]
 
 def genCapCreateOpList(config, cap_locations):
     op_list = []
     # Generate creations for CNodes
-    for cnode_name, cnode_info in config['cnodes'].items():
+    for cnode_name, cnode_info in config.cnodes.items():
         cnode_dest = cap_locations[cnode_name]
         cnode_size = cnode_info['size']
         cnode_guard = cnode_info['guard']
         op_list.append(CNodeCreateOperation(cnode_dest, cnode_size, cnode_guard))
     # Generate creations for all other caps
-    for cap_name, cap_type in config['caps'].items():
+    for cap_name, cap_type in config.caps.items():
         cap_dest = cap_locations[cap_name]
         cap_type = sel4_name_mapping[cap_type]
         cap_size = getObjectSize(cap_type)
@@ -156,7 +118,7 @@ def getRightsString(rights_list):
 
 def genCapMintOpList(config, cap_locations):
     op_list = []
-    for cap_name, mod_info in config['cap_modifications'].items():
+    for cap_name, mod_info in config.cap_modifications.items():
         original = mod_info['original']
         src = cap_locations[original]
         dest = cap_locations[cap_name]
@@ -168,7 +130,7 @@ def genCapMintOpList(config, cap_locations):
 
 def genCapCopyOpList(config, cap_locations):
     op_list = []
-    for cnode_name, cnode_info in config['cnodes'].items():
+    for cnode_name, cnode_info in config.cnodes.items():
         for cap_pos, cap_name in cnode_info.items():
             if type(cap_pos) is not int:
                 continue
@@ -226,12 +188,8 @@ def genTailspringHeader(config, thread_executables):
     return output_string
 
 if __name__ == '__main__':
-    config, get_sel4_info_path, output_file, thread_executables = getArgs()
-
-    sel4_constants = json.loads(subprocess.check_output(get_sel4_info_path, shell=False, encoding='utf-8'))
-    
+    processArgs()
+    print(output_file)
 
     header_string = genTailspringHeader(config, thread_executables)
     output_file.write(header_string)
-
-
