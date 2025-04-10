@@ -23,7 +23,7 @@ set(TAILSPRING_HEADER_GEN_PYTHON_SCRIPT "${TAILSPRING_PROJECT_DIR}/tailspring_he
 set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_GENERATED_DIR}/tailspring_gen_config.h")
 
 # Generate C program to print out sel4 object sizes
-add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.c")
+add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.cpp")
 target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf)
 
 
