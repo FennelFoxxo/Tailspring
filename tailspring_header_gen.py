@@ -195,9 +195,13 @@ def convertCapOpListToC(cap_op_list):
     output_string += '\n};\n'
     return output_string
 
+def getFramesRequired(config, thread_executables):
+    print(thread_executables)
 
 def genTailspringHeader(config, thread_executables):
     cap_locations = getCapLocations(config)
+    
+    getFramesRequired(config, thread_executables)
     
     output_string = addPreamble()
 
@@ -224,7 +228,7 @@ def genTailspringHeader(config, thread_executables):
 if __name__ == '__main__':
     config, get_sel4_info_path, output_file, thread_executables = getArgs()
 
-    sel4_constants = json.loads(subprocess.check_output(f"{get_sel4_info_path}", shell=False, encoding='utf-8'))
+    sel4_constants = json.loads(subprocess.check_output(get_sel4_info_path, shell=False, encoding='utf-8'))
     
 
     header_string = genTailspringHeader(config, thread_executables)
