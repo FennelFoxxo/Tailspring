@@ -1,4 +1,4 @@
-project(Tailspring)
+project(Tailspring C)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(ExternalProject)
@@ -32,12 +32,15 @@ set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_GENERATED_DIR}/tailspring_gen_confi
 add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.cpp")
 target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf)
 
-
 # Use python script to generate header file
 add_custom_command(
     OUTPUT  "${TAILSPRING_GEN_HEADER_PATH}"
     COMMAND ${Python3_EXECUTABLE} "${TAILSPRING_PYTHON_SCRIPT}"
-        "${TAILSPRING_CONFIG_PATH}" "$<TARGET_FILE:tailspring_get_sel4_info>" "${TAILSPRING_GEN_HEADER_PATH}" ${TAILSPRING_THREAD_DICT}
+        --config "${TAILSPRING_CONFIG_PATH}"
+        --get-sel4-info "$<TARGET_FILE:tailspring_get_sel4_info>"
+        --gcc-path "${CMAKE_C_COMPILER}"
+        --thread-executable-mapping ${TAILSPRING_THREAD_DICT}
+        --output-header "${TAILSPRING_GEN_HEADER_PATH}"
     DEPENDS "${TAILSPRING_CONFIG_PATH}" "${TAILSPRING_GET_SEL4_INFO_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info
     COMMENT "Generating Tailspring header file"
     COMMAND_EXPAND_LISTS

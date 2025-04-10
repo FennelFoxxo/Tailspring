@@ -32,11 +32,11 @@ class OutputFileWrapper:
 seL4_constants = SeL4ConstantsWrapper()
 config = ConfigWrapper()
 thread_executables = {}
-output_file = OutputFileWrapper()
+output_header_file = OutputFileWrapper()
 
 
-def initializeGlobals(config_file, get_sel4_info_path, output_file_, thread_executables_dict):
-    global seL4_constants, config, thread_executables, output_file
+def initializeGlobals(config_file, get_sel4_info_path, output_header_file_handle, thread_executables_dict):
+    global seL4_constants, config, thread_executables, output_header_file
     
     config.loadConfig(yaml.safe_load(config_file))
     
@@ -44,9 +44,9 @@ def initializeGlobals(config_file, get_sel4_info_path, output_file_, thread_exec
     seL4_constants_dict = json.loads(seL4_constants_raw)
     seL4_constants.updateDict(seL4_constants_dict)
     
-    output_file.updateFileHandle(output_file_)
+    output_header_file.updateFileHandle(output_header_file_handle)
 
     for key, filename in thread_executables_dict.items():
         thread_executables[key] = ts_types.ThreadData(filename)
 
-__all__ = ['seL4_constants', 'config', 'thread_executables', 'output_file', 'initializeGlobals']
+__all__ = ['seL4_constants', 'config', 'thread_executables', 'output_header_file', 'initializeGlobals']
