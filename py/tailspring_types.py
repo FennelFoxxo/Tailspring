@@ -35,4 +35,64 @@ class CapCopyOperation:
     def __str__(self):
         return f'{{CAP_COPY, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
 
-__all__ = [att for att in dir() if att.endswith('Operation')]
+class OperationList:
+    def __init__(self):
+        self.create_op_list = []
+        self.mint_op_list = []
+        self.copy_op_list = []
+
+    def append(self, op):
+        if type(op) in (CapCreateOperation, CNodeCreateOperation):
+            self.create_op_list.append(op)
+        elif type(op) == CapMintOperation:
+            self.mint_op_list.append(op)
+        elif type(op) == CapCopyOperation:
+            self.copy_op_list.append(op)
+
+    def getNumCreateOps(self):
+        return len(self.create_op_list)
+
+    def getNumMintOps(self):
+        return len(self.mint_op_list)
+
+    def getNumCopyOps(self):
+        return len(self.copy_op_list)
+
+    def getNumOps(self):
+        return self.getNumCreateOps() + self.getNumMintOps() + self.getNumCopyOps()
+
+    def getBytesRequired(self):
+        return sum([1 << (op.size_bits) for op in self.create_op_list])
+
+    def getOpList(self):
+        # Sort so that biggest operations are at the beginning
+        self.create_op_list.sort(key = lambda op: op.size_bits, reverse=True)
+        return self.create_op_list + self.mint_op_list + self.copy_op_list
+
+    def formatAsC(self, var_name):
+        output_string = f'CapOperation {var_name}[] = {{\n'
+
+        op_string = ',\n'.join([str(op) for op in self.getOpList()])
+        output_string += op_string
+
+        output_string += '\n};\n'
+        return output_string
+
+class CapLocations:
+    def __init__(self):
+        self.cap_locations = {}
+        # Start at 1 to use 0 as a temp slot for caps that need to be mutated
+        self.next_free_cap = 1
+    
+    def append(self, cap_name):
+        self.cap_locations[cap_name] = self.next_free_cap
+        self.next_free_cap += 1
+
+    def getSlotsRequired(self):
+        return self.next_free_cap
+    
+    def __getitem__(self, cap_name):
+        return self.cap_locations[cap_name]
+
+
+__all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations']

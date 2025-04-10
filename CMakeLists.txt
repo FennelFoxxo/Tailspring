@@ -22,7 +22,7 @@ file(MAKE_DIRECTORY "${TAILSPRING_GENERATED_DIR}")
 set(TAILSPRING_PYTHON_DIR "${TAILSPRING_PROJECT_DIR}/py")
 set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/tailspring_gen.py")
 list(APPEND TAILSPRING_PYTHON_DEPENDS
-    tailspring_gen.py tailspring_types.py tailspring_globals.py
+    tailspring_gen.py tailspring_types.py tailspring_globals.py tailspring_core.py
 )
 list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
 

@@ -179,14 +179,14 @@ bool copyAndMintObjects() {
 int main() {
 
     printf("Hello world!\n");
-    printf("Slots needed: %lu\n", SLOTS_NEEDED);
-    printf("Bytes needed: %lu\n", BYTES_NEEDED);
+    printf("Slots needed: %lu\n", SLOTS_REQUIRED);
+    printf("Bytes needed: %lu\n", BYTES_REQUIRED);
 
     printf("Test: %llu\n", 1llu << 35);
 
     loadBootInfo();
-    if (SLOTS_NEEDED > num_empty_slots) {
-        printf("Number of slots needed (%lu) is greater than number of empty slots (%lu)!\n", SLOTS_NEEDED, num_empty_slots);
+    if (SLOTS_REQUIRED > num_empty_slots) {
+        printf("Number of slots needed (%lu) is greater than number of empty slots (%lu)!\n", SLOTS_REQUIRED, num_empty_slots);
         halt();
     }
 
