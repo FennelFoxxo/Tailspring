@@ -41,7 +41,6 @@ config = ConfigWrapper()
 seL4_constants = SeL4ConstantsWrapper()
 gcc = ToolWrapper()
 ld = ToolWrapper()
-objcopy = ToolWrapper()
 temp_dir = PathWrapper()
 startup_threads = {}
 output_header_file = PathWrapper()
@@ -49,7 +48,7 @@ output_startup_threads_obj_file = PathWrapper()
 
 
 def initializeGlobals(args):
-    global config, seL4_constants, startup_threads, output_header_file, gcc, objcopy
+    global config, seL4_constants, startup_threads, output_header_file, gcc
 
     config_dict = yaml.safe_load(args.config_file)
 
@@ -86,9 +85,6 @@ def initializeGlobals(args):
     # GCC path
     gcc.updatePath(args.gcc_path)
 
-    # Objcopy path
-    objcopy.updatePath(args.objcopy_path)
-
     # Temp dir path
     temp_dir.updatePath(args.temp_dir)
 
@@ -100,5 +96,5 @@ def initializeGlobals(args):
     output_header_file.updatePath(args.output_header_file_handle)
     output_startup_threads_obj_file.updatePath(args.output_startup_threads_obj_path)
 
-__all__ = [ 'config', 'seL4_constants', 'gcc', 'objcopy', 'temp_dir', 'startup_threads',
+__all__ = [ 'config', 'seL4_constants', 'gcc', 'temp_dir', 'startup_threads',
             'output_header_file','output_startup_threads_obj_file', 'initializeGlobals']

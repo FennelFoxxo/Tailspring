@@ -41,7 +41,6 @@ add_custom_command(
         --config "${TAILSPRING_CONFIG_PATH}"
         --get-sel4-info "$<TARGET_FILE:tailspring_get_sel4_info>"
         --gcc-path "${CMAKE_C_COMPILER}"
-        --objcopy-path "${CMAKE_OBJCOPY}"
         --temp-dir "${TAILSPRING_GENERATED_DIR}"
         --startup-threads-mapping ${TAILSPRING_THREAD_DICT}
         --output-header "${TAILSPRING_GEN_HEADER_PATH}"

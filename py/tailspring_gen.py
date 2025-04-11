@@ -45,11 +45,6 @@ def processArgs():
                         required=True,
                         help='Path to the GCC compiler (used for linking)')
 
-    parser.add_argument('--objcopy-path',
-                        dest='objcopy_path',
-                        required=True,
-                        help='Path to the objcopy program')
-
     parser.add_argument('--temp-dir',
                         dest='temp_dir',
                         required=True,
