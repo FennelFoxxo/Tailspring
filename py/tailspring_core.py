@@ -1,5 +1,6 @@
 from tailspring_types import *
 from tailspring_globals import *
+import tailspring_startup_threads as ts_st
 
 sel4_name_mapping = {
     'tcb': 'seL4_TCBObject',
@@ -13,7 +14,7 @@ def formatDefine(name, value):
 def formatDefineWord(name, value):
     return f'#define {name} ((seL4_Word){value})\n'
 
-def addPreamble():
+def getPreamble():
     preamble = '''\
 #pragma once
 #include <sel4/sel4.h>
@@ -23,13 +24,17 @@ typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOpera
 typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;
 typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest_depth;} CapCopyOperation;
 typedef enum {CAP_CREATE,CNODE_CREATE,CAP_MINT,CAP_COPY} CapOperationType;
-typedef struct {CapOperationType op_type;union {CapCreateOperation cap_create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};} CapOperation;
+typedef struct {CapOperationType op_type;
+    union {CapCreateOperation cap_create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};
+} CapOperation;
 '''
-    preamble += formatDefine("CAP_ALLOW_WRITE",         "1<<0")
-    preamble += formatDefine("CAP_ALLOW_READ",          "1<<1")
-    preamble += formatDefine("CAP_ALLOW_GRANT",         "1<<2")
-    preamble += formatDefine("CAP_ALLOW_GRANT_REPLY",   "1<<3")
-    preamble += formatDefine("CREATE_OP_SIZE_BITS(cap_op)", "cap_op.op_type == CAP_CREATE ? cap_op.cap_create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits")
+    preamble += formatDefine('CAP_ALLOW_WRITE',         '1<<0')
+    preamble += formatDefine('CAP_ALLOW_READ',          '1<<1')
+    preamble += formatDefine('CAP_ALLOW_GRANT',         '1<<2')
+    preamble += formatDefine('CAP_ALLOW_GRANT_REPLY',   '1<<3')
+    preamble += formatDefine('CREATE_OP_SIZE_BITS(cap_op)', '(cap_op.op_type == CAP_CREATE ? cap_op.cap_create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits)')
+    preamble += formatDefine('SYM_VAL(sym)', '(seL4_Word)(&sym)')
+    preamble += 'extern void* _startup_threads_data_start;\n'
     return preamble
 
 def getCapLocations(config):
@@ -105,17 +110,12 @@ def genCapOpList(config, cap_locations):
     [op_list.append(op) for op in genCapCopyOpList(config, cap_locations)]
     return op_list
 
-def getFramesRequired(config, thread_executables):
-    output_strings = []
-    for key, thread_data in thread_executables.items():
-        for i in range(thread_data.getNumSegments()):
-            output_strings.append(thread_data.formatSegmentDataAsC(i, f'segment_data_{key}_{i}'))
-    return ''.join(output_strings)
+def genTailspringData():
+    segment_load_ops = ts_st.genStartupThreadsObjFile()
 
-def genTailspringHeader(config, thread_executables):
     cap_locations = getCapLocations(config)
     
-    output_string = addPreamble()
+    output_string = getPreamble()
 
     cap_op_list = genCapOpList(config, cap_locations)
     output_string += cap_op_list.formatAsC('cap_operations')
@@ -128,6 +128,6 @@ def genTailspringHeader(config, thread_executables):
 
     output_string += formatDefineWord('BYTES_REQUIRED', cap_op_list.getBytesRequired())
     
-    output_string += getFramesRequired(config, thread_executables)
-
+    output_string += ''.join([op.formatAsCExterns() for op in segment_load_ops])
+    
     return output_string

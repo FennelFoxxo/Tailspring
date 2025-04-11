@@ -85,14 +85,14 @@ class CapLocations:
         self.cap_locations = {}
         # Start at 1 to use 0 as a temp slot for caps that need to be mutated
         self.next_free_cap = 1
-    
+
     def append(self, cap_name):
         self.cap_locations[cap_name] = self.next_free_cap
         self.next_free_cap += 1
 
     def getSlotsRequired(self):
         return self.next_free_cap
-    
+
     def __getitem__(self, cap_name):
         return self.cap_locations[cap_name]
 
@@ -105,22 +105,26 @@ class ThreadData:
 
     def getNumSegments(self):
         return len(self.load_segments)
-    
-    def getSegmentData(self, segment_index):
-        return self.load_segments[segment_index].data()
-    
-    def formatSegmentDataAsC(self, segment_index, var_name):
-        chunk_size = 4096
-        output_string = f'uint8_t {var_name}[] = {{'
-        segment_data_to_write = self.getSegmentData(segment_index)
-        first = True
-        for i in range(0, len(segment_data_to_write), chunk_size):
-            if not first:
-                output_string += ','
-            else:
-                first = False
-            output_string += ','.join(map(str, segment_data_to_write[i:i+chunk_size]))
-        output_string += '};\n'
+
+    def getSegment(self, index):
+        return self.load_segments[index]
+
+class SegmentLoadOperation:
+    def __init__(self, vaddr, size, parent_dir, filename):
+        self.vaddr = vaddr
+        self.size = size
+        self.parent_dir = parent_dir
+        self.filename = filename
+
+    def getPath(self):
+        return f'{self.parent_dir}/{self.filename}.o'
+
+    def getSymbolPrefix(self):
+        return f'_binary_{self.filename}_bin'
+
+    def formatAsCExterns(self):
+        output_string =  f'extern void* {self.getSymbolPrefix()}_start;\n'
+        output_string += f'extern void* {self.getSymbolPrefix()}_size;\n'
         return output_string
 
 

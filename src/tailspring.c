@@ -182,9 +182,14 @@ int main() {
     printf("Slots needed: %lu\n", SLOTS_REQUIRED);
     printf("Bytes needed: %lu\n", BYTES_REQUIRED);
 
-    printf("Test: %llu\n", 1llu << 35);
-
     loadBootInfo();
+
+    seL4_Word start = SYM_VAL(_startup_threads_data_start);
+    seL4_Word seg0_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_0_bin_start);
+    seL4_Word seg1_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_1_bin_start);
+    seL4_Word seg2_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_2_bin_start);
+    printf("%lx, %lx, %lx, %lx\n", start, seg0_start, seg1_start, seg2_start);
+
     if (SLOTS_REQUIRED > num_empty_slots) {
         printf("Number of slots needed (%lu) is greater than number of empty slots (%lu)!\n", SLOTS_REQUIRED, num_empty_slots);
         halt();

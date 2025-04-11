@@ -15,18 +15,20 @@ set(TAILSPRING_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}")
 set(TAILSPRING_SOURCE_DIR "${TAILSPRING_PROJECT_DIR}/src")
 set(TAILSPRING_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(TAILSPRING_GENERATED_DIR "${TAILSPRING_BINARY_DIR}/generated")
+set(TAILSPRING_INCLUDE_DIR "${TAILSPRING_GENERATED_DIR}/include")
 set(TAILSPRING_CONFIG_PATH "${RUNTIME_CONFIGS_DIR}/${TAILSPRING_CONFIG_FILENAME}")
 
-file(MAKE_DIRECTORY "${TAILSPRING_GENERATED_DIR}")
+file(MAKE_DIRECTORY "${TAILSPRING_INCLUDE_DIR}")
 
 set(TAILSPRING_PYTHON_DIR "${TAILSPRING_PROJECT_DIR}/py")
 set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/tailspring_gen.py")
 list(APPEND TAILSPRING_PYTHON_DEPENDS
-    tailspring_gen.py tailspring_types.py tailspring_globals.py tailspring_core.py
+    tailspring_gen.py tailspring_types.py tailspring_globals.py tailspring_core.py tailspring_startup_threads.py
 )
 list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
 
-set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_GENERATED_DIR}/tailspring_gen_config.h")
+set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_INCLUDE_DIR}/tailspring_gen_config.h")
+set(TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH "${TAILSPRING_GENERATED_DIR}/startup_threads.o")
 
 # Generate C program to print out sel4 object sizes
 add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.cpp")
@@ -34,13 +36,16 @@ target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf)
 
 # Use python script to generate header file
 add_custom_command(
-    OUTPUT  "${TAILSPRING_GEN_HEADER_PATH}"
+    OUTPUT  "${TAILSPRING_GEN_HEADER_PATH}" "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}"
     COMMAND ${Python3_EXECUTABLE} "${TAILSPRING_PYTHON_SCRIPT}"
         --config "${TAILSPRING_CONFIG_PATH}"
         --get-sel4-info "$<TARGET_FILE:tailspring_get_sel4_info>"
         --gcc-path "${CMAKE_C_COMPILER}"
-        --thread-executable-mapping ${TAILSPRING_THREAD_DICT}
+        --objcopy-path "${CMAKE_OBJCOPY}"
+        --temp-dir "${TAILSPRING_GENERATED_DIR}"
+        --startup-threads-mapping ${TAILSPRING_THREAD_DICT}
         --output-header "${TAILSPRING_GEN_HEADER_PATH}"
+        --output-startup-threads-obj "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}"
     DEPENDS "${TAILSPRING_CONFIG_PATH}" "${TAILSPRING_GET_SEL4_INFO_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info
     COMMENT "Generating Tailspring header file"
     COMMAND_EXPAND_LISTS
@@ -49,6 +54,8 @@ add_custom_target(TAILSPRING_GEN_HEADER_TARGET DEPENDS ${TAILSPRING_GEN_HEADER_P
 
 # Compile Tailspring thread
 add_executable(             tailspring ${TAILSPRING_SOURCE_DIR}/tailspring.c)
-target_include_directories( tailspring PRIVATE ${TAILSPRING_GENERATED_DIR})
-target_link_libraries(      tailspring sel4muslcsys)
+target_include_directories( tailspring PRIVATE ${TAILSPRING_INCLUDE_DIR})
+target_link_libraries(      tailspring sel4muslcsys "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}")
+target_link_libraries(tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
 add_dependencies(           tailspring TAILSPRING_GEN_HEADER_TARGET)
+set_target_properties(tailspring PROPERTIES LINK_DEPENDS "${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")

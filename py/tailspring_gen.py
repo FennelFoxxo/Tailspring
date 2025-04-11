@@ -45,28 +45,38 @@ def processArgs():
                         required=True,
                         help='Path to the GCC compiler (used for linking)')
 
-    parser.add_argument('--thread-executable-mapping',
-                        dest='thread_executable_dict',
+    parser.add_argument('--objcopy-path',
+                        dest='objcopy_path',
+                        required=True,
+                        help='Path to the objcopy program')
+
+    parser.add_argument('--temp-dir',
+                        dest='temp_dir',
+                        required=True,
+                        help='Path to a directory to place generated intermediate files')
+
+    parser.add_argument('--startup-threads-mapping',
+                        dest='startup_threads_dict',
                         required=True,
                         nargs='*',
                         action=KeyValueAction,
-                        help='Key-value pairs mapping executable names in the configuration file to the path of the executable')
+                        help='Key-value pairs mapping startup thread names in the config file to the executable path')
 
     parser.add_argument('--output-header',
                         dest='output_header_file_handle',
                         required=True,
-                        type=argparse.FileType('w'),
                         help='Path to the output generated header file')
 
-    args = parser.parse_args()
+    parser.add_argument('--output-startup-threads-obj',
+                        dest='output_startup_threads_obj_path',
+                        required=True,
+                        help='Path to the output generated object file containing startup thread data')
 
-    initializeGlobals(  config_file=args.config_file,
-                        get_sel4_info_path=args.get_sel4_info_path,
-                        output_header_file_handle=args.output_header_file_handle,
-                        thread_executables_dict=args.thread_executable_dict)
+    return parser.parse_args()
 
 if __name__ == '__main__':
-    processArgs()
+    args = processArgs()
+    initializeGlobals(args)
 
-    header_string = ts_core.genTailspringHeader(config, thread_executables)
+    header_string = ts_core.genTailspringData()
     output_header_file.write(header_string)

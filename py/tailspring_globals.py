@@ -21,32 +21,84 @@ class ConfigWrapper:
         self.caps = config_dict['caps']
         self.cap_modifications = config_dict['cap_modifications']
         self.cnodes = config_dict['cnodes']
-        self.caps = config_dict['caps']
+        self.vspaces = config_dict['vspaces']
 
-class OutputFileWrapper:
-    def updateFileHandle(self, file_handle):
-        self.file = file_handle
+class PathWrapper:
+    def updatePath(self, path):
+        self.path = path
     def write(self, content):
-        self.file.write(content)
+        with open(self.path, 'w') as f:
+            f.write(content)
 
-seL4_constants = SeL4ConstantsWrapper()
+class ToolWrapper:
+    def updatePath(self, path):
+        self.path = path
+    def call(self, args, cwd=None):
+        command = [self.path] + args
+        return subprocess.run(command, capture_output=True, encoding='utf-8', cwd=cwd).stdout
+
 config = ConfigWrapper()
-thread_executables = {}
-output_header_file = OutputFileWrapper()
+seL4_constants = SeL4ConstantsWrapper()
+gcc = ToolWrapper()
+ld = ToolWrapper()
+objcopy = ToolWrapper()
+temp_dir = PathWrapper()
+startup_threads = {}
+output_header_file = PathWrapper()
+output_startup_threads_obj_file = PathWrapper()
 
 
-def initializeGlobals(config_file, get_sel4_info_path, output_header_file_handle, thread_executables_dict):
-    global seL4_constants, config, thread_executables, output_header_file
-    
-    config.loadConfig(yaml.safe_load(config_file))
-    
-    seL4_constants_raw = subprocess.check_output(get_sel4_info_path, shell=False, encoding='utf-8')
+def initializeGlobals(args):
+    global config, seL4_constants, startup_threads, output_header_file, gcc, objcopy
+
+    config_dict = yaml.safe_load(args.config_file)
+
+    # Need to de-duplicate startup threads that are listed in multiple vspaces - each thread needs its own name
+    thread_names_duplicate_count = {} # Keep track of how many times each thread name has been encountered
+    vspace_items = config_dict['vspaces'].items() # Save temporary because we're going to be modifying this dict
+    startup_threads_dict_dedup = {}
+
+    for vspace_name, thread_name in vspace_items:
+        # Find how many times we've seen this thread name before
+        thread_name_duplicate_count = thread_names_duplicate_count[thread_name] if thread_name in thread_names_duplicate_count else 0
+
+        # Get the path to the executable corresponding to this thread's name
+        startup_thread_path = args.startup_threads_dict[thread_name]
+
+        # Generate a unique name
+        unique_name = f"{thread_name}__{thread_name_duplicate_count}"
+
+        # Update config dict and startup threads dict with new unique name
+        config_dict['vspaces'][vspace_name] = unique_name
+        startup_threads_dict_dedup[unique_name] = startup_thread_path
+
+        # Increment duplicate count
+        thread_names_duplicate_count[thread_name] = thread_name_duplicate_count + 1
+
+    # Config
+    config.loadConfig(config_dict)
+
+    # Get seL4 info
+    seL4_constants_raw = subprocess.run([args.get_sel4_info_path], capture_output=True, encoding='utf-8').stdout
     seL4_constants_dict = json.loads(seL4_constants_raw)
     seL4_constants.updateDict(seL4_constants_dict)
-    
-    output_header_file.updateFileHandle(output_header_file_handle)
 
-    for key, filename in thread_executables_dict.items():
-        thread_executables[key] = ts_types.ThreadData(filename)
+    # GCC path
+    gcc.updatePath(args.gcc_path)
 
-__all__ = ['seL4_constants', 'config', 'thread_executables', 'output_header_file', 'initializeGlobals']
+    # Objcopy path
+    objcopy.updatePath(args.objcopy_path)
+
+    # Temp dir path
+    temp_dir.updatePath(args.temp_dir)
+
+    # Startup threads mapping
+    for key, filename in startup_threads_dict_dedup.items():
+        startup_threads[key] = ts_types.ThreadData(filename)
+
+    # Output files
+    output_header_file.updatePath(args.output_header_file_handle)
+    output_startup_threads_obj_file.updatePath(args.output_startup_threads_obj_path)
+
+__all__ = [ 'config', 'seL4_constants', 'gcc', 'objcopy', 'temp_dir', 'startup_threads',
+            'output_header_file','output_startup_threads_obj_file', 'initializeGlobals']
