@@ -72,11 +72,41 @@ void printOp(const CapOperation* c) {
     }
 }
 
-bool doCreateOp(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
+seL4_Word getUntypedBestFitIndex(seL4_Word size_required) {
+    // Keep track of smallest untyped that fits this object
+    seL4_Word best_fit_index = ~0llu;
+    seL4_Word best_fit_size = ~0llu;
+    for (seL4_Word untyped_index = 0; untyped_index < num_non_device_untyped; untyped_index++) {
+        seL4_Word untyped_size = non_device_untyped_array[untyped_index].bytes_left;
+        // If the untyped is big enough for this object
+        if (untyped_size >= size_required) {
+            // If the untyped is a better fit than our current best fit
+            if (untyped_size < best_fit_size) {
+                best_fit_index = untyped_index;
+                best_fit_size = untyped_size;
+            }
+        }
+    }
+    // Will return ~0llu if no acceptable region found
+    return best_fit_index;
+}
+
+
+
+
+bool doCreateOp(CapOperation* cap_op) {
+    seL4_Word size_required = 1llu << CREATE_OP_SIZE_BITS(*cap_op);
+    seL4_Word untyped_index = getUntypedBestFitIndex(size_required);
+    if (untyped_index == ~0llu) return false;
+    non_device_untyped_array[untyped_index].bytes_left -= size_required;
+
+    seL4_CPtr untyped = non_device_untyped_array[untyped_index].cptr;
+
+
     seL4_Error error;
 
     if (cap_op->op_type == CAP_CREATE) {
-        error = seL4_Untyped_Retype(untyped_cptr,
+        error = seL4_Untyped_Retype(untyped,
                                     cap_op->cap_create_op.cap_type,
                                     cap_op->cap_create_op.size_bits,
                                     seL4_CapInitThreadCNode, 0, 0,
@@ -87,7 +117,7 @@ bool doCreateOp(CapOperation* cap_op, seL4_CPtr untyped_cptr) {
 
     // If we're creating a CNode then we need to first create it into slot 0,
     // then mutate it into its destination slot to set its guard
-    error = seL4_Untyped_Retype(untyped_cptr,
+    error = seL4_Untyped_Retype(untyped,
                                 seL4_CapTableObject,
                                 cap_op->cnode_create_op.slot_bits,
                                 seL4_CapInitThreadCNode, 0, 0,
@@ -126,52 +156,24 @@ bool doMintOp(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
-bool createObjects() {
-    seL4_Word best_fit_index, best_fit_size, size_required;
-    for (seL4_Word op_index = 0; op_index < NUM_CREATE_OPERATIONS; op_index++) {
-        // Find smallest region which fits this object
-        best_fit_size = ~0llu;
-        size_required = 1llu << CREATE_OP_SIZE_BITS(cap_operations[op_index]);
-
-        for (seL4_Word untyped_index = 0; untyped_index < num_non_device_untyped; untyped_index++) {
-            seL4_Word untyped_size = non_device_untyped_array[untyped_index].bytes_left;
-            // If the untyped is big enough for this object
-            if (untyped_size >= size_required) {
-                // If the untyped is a better fit than our current best fit
-                if (untyped_size < best_fit_size) {
-                    best_fit_index = untyped_index;
-                    best_fit_size = untyped_size;
-                }
-            }
-        }
-
-        // Region of sufficient size not found
-        if (best_fit_size == ~0llu) return false;
-
-        printf("Allocating object of size %lu in region %lu of size %lu\n", size_required, best_fit_index, best_fit_size);
-        if (!doCreateOp(&cap_operations[op_index], non_device_untyped_array[best_fit_index].cptr)) return false;
-
-        // Mark untyped as containing less memory
-        non_device_untyped_array[best_fit_index].bytes_left -= size_required;
+bool dispatchOperation(CapOperation* cap_op) {
+    switch (cap_op->op_type) {
+        case CAP_CREATE:
+            return doCreateOp(cap_op);
+        case CNODE_CREATE:
+            return doCreateOp(cap_op);
+        case CAP_COPY:
+            return doCopyOp(cap_op);
+        case CAP_MINT:
+            return doMintOp(cap_op);
+        default:
+            halt();
     }
-    return true;
 }
 
-bool copyAndMintObjects() {
-    bool success;
-    for (seL4_Word op_index = NUM_CREATE_OPERATIONS; op_index < NUM_OPERATIONS; op_index++) {
-        CapOperation* cap_op = &cap_operations[op_index];
-        switch (cap_op->op_type) {
-            case CAP_COPY:
-                success = doCopyOp(cap_op);
-                break;
-            case CAP_MINT:
-                success = doMintOp(cap_op);
-                break;
-            default:
-                break;
-        }
-        if (!success) return false;
+bool executeOperations() {
+    for (seL4_Word op_index = 0; op_index < NUM_OPERATIONS; op_index++) {
+        if (!dispatchOperation(&cap_operations[op_index])) return false;
     }
     return true;
 }
@@ -199,13 +201,8 @@ int main() {
         printOp(&cap_operations[i]);
     }
 
-    if (!createObjects()) {
-        printf("Failed to allocate objects\n");
-        halt();
-    }
-
-    if (!copyAndMintObjects()) {
-        printf("Failed to copy or mint objects\n");
+    if (!executeOperations()) {
+        printf("Failed to execute operations\n");
         halt();
     }
 

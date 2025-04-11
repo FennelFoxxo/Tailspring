@@ -32,7 +32,8 @@ typedef struct {CapOperationType op_type;
     preamble += formatDefine('CAP_ALLOW_READ',          '1<<1')
     preamble += formatDefine('CAP_ALLOW_GRANT',         '1<<2')
     preamble += formatDefine('CAP_ALLOW_GRANT_REPLY',   '1<<3')
-    preamble += formatDefine('CREATE_OP_SIZE_BITS(cap_op)', '(cap_op.op_type == CAP_CREATE ? cap_op.cap_create_op.size_bits : cap_op.cnode_create_op.slot_bits + seL4_SlotBits)')
+    preamble += formatDefine('CREATE_OP_SIZE_BITS(cap_op)',
+        '((cap_op).op_type == CAP_CREATE ? (cap_op).cap_create_op.size_bits : (cap_op).cnode_create_op.slot_bits + seL4_SlotBits)')
     preamble += formatDefine('SYM_VAL(sym)', '(seL4_Word)(&sym)')
     preamble += 'extern void* _startup_threads_data_start;\n'
     return preamble
