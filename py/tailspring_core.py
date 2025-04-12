@@ -53,7 +53,7 @@ def getRightsString(rights_list):
     rights_flags.append('CAP_ALLOW_GRANT') if 'grant' in rights_list else None
     rights_flags.append('CAP_ALLOW_GRANT_REPLY') if 'grant_reply' in rights_list else None
 
-    return '&'.join(rights_flags) if len(rights_flags) else 0
+    return ('(' + ' | '.join(rights_flags) + ')') if len(rights_flags) else 0
 
 def genCapMintOpList(cap_locations):
     op_list = []
