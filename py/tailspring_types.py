@@ -79,12 +79,26 @@ class MapOperation(Operation):
             vspace = self.vspace,
             mapping_func_index = self.mapping_func_index)
 
+class SegmentLoadOperation(Operation):
+    def __init__(self, segment_start_vaddr, segment_dest_vaddr, segment_length, vspace):
+        self.segment_start_vaddr = segment_start_vaddr
+        self.segment_dest_vaddr = segment_dest_vaddr
+        self.segment_length = segment_length
+        self.vspace = vspace
+    def __str__(self):
+        return self.toString('segment_load_op',
+            segment_start_vaddr = self.segment_start_vaddr,
+            segment_dest_vaddr = self.segment_dest_vaddr,
+            segment_length = self.segment_length,
+            vspace = self.vspace)
+
 class OperationList:
     def __init__(self):
         self.create_op_list = []
         self.mint_op_list = []
         self.copy_op_list = []
         self.map_op_list = []
+        self.segment_load_op_list = []
 
     def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
@@ -95,6 +109,8 @@ class OperationList:
             self.copy_op_list.append(op)
         elif type(op) == MapOperation:
             self.map_op_list.append(op)
+        elif type(op) == SegmentLoadOperation:
+            self.segment_load_op_list.append(op)
 
     def append(self, ops):
         if type(ops) == list:
@@ -102,16 +118,17 @@ class OperationList:
         else:
             self.appendSingle(ops)
 
-    def getNumOps(self):
-        return len(self.getOpList())
-
     def getBytesRequired(self):
         return sum([1 << (op.size_bits) for op in self.create_op_list])
 
     def getOpList(self):
         # Sort so that biggest operations are at the beginning
         self.create_op_list.sort(key = lambda op: op.bytes_required, reverse=True)
-        return self.create_op_list + self.mint_op_list + self.copy_op_list + self.map_op_list
+        return  (self.create_op_list
+                + self.mint_op_list
+                + self.copy_op_list
+                + self.map_op_list
+                + self.segment_load_op_list)
 
     def emit(self, var_name):
         emitLine(f'CapOperation {var_name}[] = {{')
@@ -162,7 +179,6 @@ class LoadSegment:
 
     def emitExterns(self):
         emitLine(f'extern void* {self.getSymbolPrefix()}_start;')
-        emitLine(f'extern void* {self.getSymbolPrefix()}_size;')
 
 
 __all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations', 'ThreadData', 'LoadSegment']

@@ -13,7 +13,7 @@ extern "C" {
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -49,6 +49,13 @@ struct MapOperation {
     uint16_t mapping_func_index;
 };
 
+struct SegmentLoadOperation {
+    seL4_Word segment_start_vaddr;
+    seL4_Word segment_dest_vaddr;
+    seL4_Word segment_length;
+    uint32_t vspace;
+};
+
 struct CapOperation {
     CapOperationType op_type;
     union {
@@ -57,6 +64,7 @@ struct CapOperation {
         CapCopyOperation copy_op;
         CapMutateOperation mutate_op;
         MapOperation map_op;
+        SegmentLoadOperation segment_load_op;
     };
 };
 
@@ -70,4 +78,8 @@ struct UntypedInfo {
 // so this address should point to the first frame in userImageFrames
 extern void* _startup_threads_data_start;
 
+// Each platform has its own platform-specific functions to map in pages and page structures.
+// The specific mapping functions are chosen in the python script and wrappers are generated for the
+// mapping functions, then placed in an array of function pointers, that way the correct function can
+// be chosen simply by index rather than name. This is the signature of the mapping function wrapper.
 typedef seL4_Error (*mappingFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);

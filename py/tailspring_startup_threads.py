@@ -30,22 +30,34 @@ def genStartupThreadsObjFile():
 
     return load_segments_dict
 
+def calcPadding(n, alignment):
+    r = n % alignment
+    return 0 if r == 0 else alignment - r
 
 def genSegmentObjectFile(segment, thread_name, segment_number):
     obj_file_name_no_ext = f'startup_thread_{thread_name}_segment_{segment_number}'
 
     # Write raw segment data to file
     with open(env.temp_dir / f'{obj_file_name_no_ext}.bin', 'wb') as f:
-        p_filesz = f.write(segment.data())
+        total_size = 0
+
+        # Add padding to the beginning so that the load address is aligned to the nearest page
+        start_padding = segment['p_vaddr'] % 4096
+        total_size += f.write(b'0'*start_padding)
+
+        total_size += f.write(segment.data())
 
         # We only wrote p_filesz byets, but we actually need to reserve p_memsz bytes
-        p_memsz = segment['p_memsz']
-        padding_needed = 4096 - (p_memsz % 4096)
-        f.write(b'0'*(p_memsz - p_filesz + padding_needed))
+        total_size += f.write(b'0'*(segment['p_memsz'] - segment['p_filesz']))
+
+        # Make sure the end of the segment is also aligned to the nearest page
+        end_padding = calcPadding(total_size, 4096)
+        total_size += f.write(b'0'*end_padding)
 
     # Use linker to package binary data as linkable object file
     env.gcc.call([  '-static', '-nostdlib', '-fno-lto', '-Wl,-r,-b,binary',   # Flags
                     f'{obj_file_name_no_ext}.bin',  # Input file
                     '-o', f'{obj_file_name_no_ext}.o' # Output file
                 ], cwd=env.temp_dir)
-    return LoadSegment(segment['p_vaddr'], segment['p_memsz'], env.temp_dir, obj_file_name_no_ext)
+    # Since we added padding to the beginning, the load address needs to be shifted back
+    return LoadSegment(segment['p_vaddr'] - start_padding, total_size, env.temp_dir, obj_file_name_no_ext)

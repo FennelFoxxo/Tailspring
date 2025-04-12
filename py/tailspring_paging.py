@@ -40,13 +40,18 @@ mapping_funcs = {
             'first_empty_slot + cap_op->map_op.vspace,'
             'cap_op->map_op.vaddr,'
             'seL4_X86_Default_VMAttributes);'),
-    PagingEnums.Page:
+
+    # Specific mapping and unmapping functions for individual pages
+    f'{PagingEnums.Page.name}_map':
         ('seL4_X86_Page_Map('
-            'first_empty_slot + cap_op->map_op.service,'
-            'first_empty_slot + cap_op->map_op.vspace,'
-            'cap_op->map_op.vaddr,'
+            'frame,'
+            'vspace_abs,'
+            'vaddr,'
             'seL4_ReadWrite,'
             'seL4_X86_Default_VMAttributes);'),
+
+    f'{PagingEnums.Page.name}_unmap':
+        'seL4_X86_Page_Unmap(frame);'
 }
 
 # Arranged from top-most structure to bottom-most
@@ -120,22 +125,54 @@ class PagingStructure:
         [op_list.extend(child.genCreateOps(vspace_name, cap_locations)) for child in self.children]
         return op_list
 
-def emitPagingFuncs(structures_order):
+def emitMappingFuncs(structures_order):
+    # The individual page mapping functions are handled differently from the rest
+    structures_order_except_last = structures_order[:-1]
+
     # Emit function definitions
-    for structure_enum in structures_order:
+    for structure_enum in structures_order_except_last:
         func_name = f'mappingFunc{structure_enum.value}_'
         func_signature = '(CapOperation* cap_op, seL4_Word first_empty_slot)'
         emitLine(f'seL4_Error {func_name}{func_signature} {{ return {mapping_funcs[structure_enum]} }}')
 
     # Emit function array
+    # We have to be careful that the enum values line up with the list indices
+    enum_list = sorted(PagingEnums, key=lambda e: e.value)
+
     emitLine('mappingFuncType mapping_funcs[] = {')
-    for structure_enum in structures_order:
-        func_name = f'mappingFunc{structure_enum.value}_'
+    for e in enum_list:
+        if e in structures_order_except_last:
+            func_name = f'mappingFunc{e.value}_'
+        else:
+            func_name = 0
         emitLine(f'{func_name},')
     emitLine('};')
 
-def genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments):
+    # Now we can emit our mapping and unmapping functions separately
+    page_map_func_name = 'pageMapFunc'
+    page_map_func_signature = '(seL4_CPtr frame, seL4_CPtr vspace_abs, seL4_Word vaddr)'
+    page_map_func_body = mapping_funcs[structures_order[-1].name + '_map']
+    emitLine(f'seL4_Error {page_map_func_name}{page_map_func_signature} {{ return {page_map_func_body} }}')
+
+    page_unmap_func_name = 'pageUnmapFunc'
+    page_unmap_func_signature = '(seL4_CPtr frame)'
+    page_unmap_func_body = mapping_funcs[structures_order[-1].name + '_unmap']
+    emitLine(f'seL4_Error {page_unmap_func_name}{page_unmap_func_signature} {{ return {page_unmap_func_body} }}')
+
+
+def genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments, structures_order):
     address_ranges_to_map = [(segment.vaddr, segment.vaddr + segment.size) for segment in load_segments]
+
+    top_paging_structure = PagingStructure(structures_order[0], x86_64_paging_structures_order, 0)
+
+    top_paging_structure.createChildrenToCoverRanges(address_ranges_to_map)
+    return top_paging_structure.genCreateOps(vspace_name, cap_locations)
+
+def genSegmentLoadOps(cap_locations, load_segments_dict):
+    # We need to determine which platform we're building for, and figure out what sort of paging structure it uses.
+    # The paging structures follow a certain order from topmost structure (covering the most address space) down to
+    # the bottommost structure. We have a few predefined orders for paging structures and we set structures_order
+    # to the relevant one
     mode = env.seL4_constants.paging.mode
 
     if mode == 'x86-64':
@@ -143,15 +180,24 @@ def genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments):
     else:
         raise Exception(f"Don't know how to create paging structures for {mode}")
 
-    emitPagingFuncs(structures_order)
-    top_paging_structure = PagingStructure(structures_order[0], x86_64_paging_structures_order, 0)
-
-
-    top_paging_structure.createChildrenToCoverRanges(address_ranges_to_map)
-    return top_paging_structure.genCreateOps(vspace_name, cap_locations)
-
-def genSegmentLoadOps(cap_locations, load_segments_dict):
     op_list = []
+
+    # We first need to figure out all the paging structures we need to create to map all our vspaces
     for vspace_name, load_segments in load_segments_dict.items():
-        op_list += genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments)
+        op_list += genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments, structures_order)
+
+    # Emit the platform-specific functions for mapping
+    emitMappingFuncs(structures_order)
+
+    # Now we're ready to actually emit the operations to unmap each section from the rootserver memory and
+    # map it into the destination vspace memory
+    for vspace_name, load_segments in load_segments_dict.items():
+        for segment in load_segments:
+            segment_start_symbol = f'{segment.getSymbolPrefix()}_start'
+            op_list.append(SegmentLoadOperation(
+                f'SYM_VAL({segment_start_symbol})',
+                segment.vaddr,
+                segment.size,
+                cap_locations[vspace_name]))
+
     return op_list

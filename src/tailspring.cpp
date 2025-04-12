@@ -49,16 +49,28 @@ void loadBootInfo() {
 void printOp(const CapOperation* c) {
     switch (c->op_type) {
         case CREATE_OP:
-            printf("Create (size=%u) (dest=%u)\n", c->create_op.size_bits, c->create_op.dest);
+            printf("Create (size=%u) (dest=%u)\n",
+                c->create_op.size_bits, c->create_op.dest);
             break;
         case MINT_OP:
-            printf("Mint (src=%u) (dest=%u) (badge=%lu) (rights=%u)\n", c->mint_op.src, c->mint_op.dest, c->mint_op.badge, c->mint_op.rights);
+            printf("Mint (src=%u) (dest=%u) (badge=%lu) (rights=%u)\n",
+                c->mint_op.src, c->mint_op.dest, c->mint_op.badge, c->mint_op.rights);
             break;
         case COPY_OP:
-            printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n", c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
+            printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n",
+                c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
             break;
         case MUTATE_OP:
-            printf("Mutate (src=%u) (dest=%u) (guard=%lu)\n", c->mutate_op.src, c->mutate_op.dest, c->mutate_op.guard);
+            printf("Mutate (src=%u) (dest=%u) (guard=%lu)\n",
+                c->mutate_op.src, c->mutate_op.dest, c->mutate_op.guard);
+            break;
+        case MAP_OP:
+            printf("Map (service=%u) (vspace=%u) (vaddr=%lx)\n",
+                c->map_op.service, c->map_op.vspace, c->map_op.vaddr);
+            break;
+        case SEGMENT_LOAD_OP:
+            printf("Segment load (vspace=%u) (vaddr=%lx) (length=%lx)\n",
+                c->segment_load_op.vspace, c->segment_load_op.segment_dest_vaddr, c->segment_load_op.segment_length);
             break;
     }
 }
@@ -138,6 +150,26 @@ bool doMapOp(CapOperation* cap_op) {
     return (map_func(cap_op, first_empty_slot) == seL4_NoError);
 }
 
+bool doSegmentLoadOp(CapOperation* cap_op) {
+    seL4_Word frames_start_address = SYM_VAL(_startup_threads_data_start);
+    seL4_Word segment_start_address = cap_op->segment_load_op.segment_start_vaddr;
+    seL4_CPtr segment_start_frame = boot_info->userImageFrames.start
+                                    + (segment_start_address - frames_start_address) / (1 << seL4_PageBits);
+    seL4_Error error;
+    for (seL4_Word i = 0; i < cap_op->segment_load_op.segment_length / (1 << seL4_PageBits); i++) {
+        // Unmap page from this vspace
+        error = pageUnmapFunc(segment_start_frame + i);
+        if (error != seL4_NoError) return false;
+
+        // Map page into destination vspace
+        error = pageMapFunc(    segment_start_frame + i,
+                                first_empty_slot + cap_op->segment_load_op.vspace,
+                                cap_op->segment_load_op.segment_dest_vaddr);
+        if (error != seL4_NoError) return false;
+    }
+    return true;
+}
+
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
         case CREATE_OP:
@@ -150,6 +182,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doMutateOp(cap_op);
         case MAP_OP:
             return doMapOp(cap_op);
+        case SEGMENT_LOAD_OP:
+            return doSegmentLoadOp(cap_op);
         default:
             halt();
     }

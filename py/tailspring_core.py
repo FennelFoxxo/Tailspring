@@ -85,16 +85,16 @@ def genTailspringData():
 
     load_segments_dict = ts_st.genStartupThreadsObjFile()
 
+    [segment.emitExterns() for segment_list in load_segments_dict.values() for segment in segment_list]
+
     cap_locations = getCapLocations()
 
     cap_op_list = genCapOpList(cap_locations, load_segments_dict)
     cap_op_list.emit('cap_operations')
 
-    emitDefine('NUM_OPERATIONS', cap_op_list.getNumOps())
+    emitDefine('NUM_OPERATIONS', '(sizeof(cap_operations) / sizeof(cap_operations[0]))')
 
     num_slots_required = cap_locations.getSlotsRequired()
     emitDefineWord('SLOTS_REQUIRED', num_slots_required)
 
     emitDefineWord('BYTES_REQUIRED', cap_op_list.getBytesRequired())
-
-    [segment.emitExterns() for segment_list in load_segments_dict.values() for segment in segment_list]
