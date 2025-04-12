@@ -2,42 +2,69 @@ from tailspring_globals import *
 
 from elftools.elf.elffile import ELFFile
 
-class CapCreateOperation:
+class Operation:
+    def toString(self, op_name, **kwargs):
+        initializers = ', '.join([f'.{key}={val}' for key, val in kwargs.items()])
+        return f'{{ {op_name.upper()}, .{op_name.lower()} = {{ {initializers} }} }}'
+
+class CapCreateOperation(Operation):
     def __init__(self, cap_type, dest, size_bits):
         self.cap_type = cap_type
         self.dest = dest
         self.size_bits = size_bits
         self.bytes_required = 1 << size_bits
     def __str__(self):
-        return f'{{CAP_CREATE, .create_op={{{self.cap_type}, {self.bytes_required}, {self.dest}, {self.size_bits}}}}}'
+        return self.toString('create_op',
+            cap_type = self.cap_type,
+            bytes_required = self.bytes_required,
+            dest = self.dest,
+            size_bits = self.size_bits)
 
-class CNodeCreateOperation:
+class CNodeCreateOperation(Operation):
     def __init__(self, dest, size_bits, guard):
         self.dest = dest
         self.size_bits = size_bits
         self.bytes_required = 1 << (size_bits + env.seL4_constants.literals.seL4_SlotBits)
         self.guard = guard
     def __str__(self):
-        return (f'{{CAP_CREATE, .create_op={{seL4_CapTableObject, {self.bytes_required}, 0, {self.size_bits}}}}},\n'
-                f'{{CAP_MUTATE, .mutate_op={{{self.guard}, 0, {self.dest}}}}}')
+        create_op =self.toString('create_op',
+            cap_type = 'seL4_CapTableObject',
+            bytes_required = self.bytes_required,
+            dest = 0,
+            size_bits = self.size_bits)
 
-class CapMintOperation:
+        mutate_op = self.toString('mutate_op',
+            guard = self.guard,
+            src = 0,
+            dest = self.dest)
+
+        return create_op + ',\n' + mutate_op
+
+class CapMintOperation(Operation):
     def __init__(self, badge, src, dest, rights):
         self.badge = badge
         self.src = src
         self.dest = dest
         self.rights = rights
     def __str__(self):
-        return f'{{CAP_MINT, .mint_op={{{self.badge}, {self.src}, {self.dest}, {self.rights}}}}}'
+        return self.toString('mint_op',
+            badge = self.badge,
+            src = self.src,
+            dest = self.dest,
+            rights = self.rights)
 
-class CapCopyOperation:
+class CapCopyOperation(Operation):
     def __init__(self, src, dest_root, dest_index, dest_depth):
         self.src = src
         self.dest_root = dest_root
         self.dest_index = dest_index
         self.dest_depth = dest_depth
     def __str__(self):
-        return f'{{CAP_COPY, .copy_op={{{self.src}, {self.dest_root}, {self.dest_index}, {self.dest_depth}}}}}'
+        return self.toString('copy_op',
+            src = self.src,
+            dest_root = self.dest_root,
+            dest_index = self.dest_index,
+            dest_depth = self.dest_depth)
 
 class OperationList:
     def __init__(self):

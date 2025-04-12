@@ -13,7 +13,7 @@ extern "C" {
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CAP_CREATE, CAP_MINT, CAP_COPY, CAP_MUTATE};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;

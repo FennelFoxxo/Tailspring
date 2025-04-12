@@ -48,16 +48,16 @@ void loadBootInfo() {
 
 void printOp(const CapOperation* c) {
     switch (c->op_type) {
-        case CAP_CREATE:
+        case CREATE_OP:
             printf("Create (size=%u) (dest=%u)\n", c->create_op.size_bits, c->create_op.dest);
             break;
-        case CAP_MINT:
+        case MINT_OP:
             printf("Mint (src=%u) (dest=%u) (badge=%lu) (rights=%u)\n", c->mint_op.src, c->mint_op.dest, c->mint_op.badge, c->mint_op.rights);
             break;
-        case CAP_COPY:
+        case COPY_OP:
             printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n", c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
             break;
-        case CAP_MUTATE:
+        case MUTATE_OP:
             printf("Mutate (src=%u) (dest=%u) (guard=%lu)\n", c->mutate_op.src, c->mutate_op.dest, c->mutate_op.guard);
             break;
     }
@@ -135,13 +135,13 @@ bool doMutateOp(CapOperation* cap_op) {
 
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
-        case CAP_CREATE:
+        case CREATE_OP:
             return doCreateOp(cap_op);
-        case CAP_COPY:
+        case COPY_OP:
             return doCopyOp(cap_op);
-        case CAP_MINT:
+        case MINT_OP:
             return doMintOp(cap_op);
-        case CAP_MUTATE:
+        case MUTATE_OP:
             return doMutateOp(cap_op);
         default:
             halt();
