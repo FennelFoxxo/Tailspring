@@ -1,12 +1,7 @@
 from tailspring_types import *
 from tailspring_globals import *
 import tailspring_startup_threads as ts_st
-
-sel4_name_mapping = {
-    'tcb': 'seL4_TCBObject',
-    'frame': 'seL4_X86_4K',
-    'endpoint': 'seL4_EndpointObject'
-}
+import tailspring_paging as ts_paging
 
 def emitDefine(name, value):
     emitLine(f'#define {name} ({value})')
@@ -25,9 +20,6 @@ def getCapLocations():
         cap_locations.append(key)
     return cap_locations
 
-def getObjectSize(object_type):
-    return env.seL4_constants.object_sizes[object_type]
-
 def genCapCreateOpList(cap_locations):
     op_list = []
     # Generate creations for CNodes
@@ -40,7 +32,7 @@ def genCapCreateOpList(cap_locations):
     for cap_name, cap_type in env.config.caps.items():
         cap_dest = cap_locations[cap_name]
         cap_type = sel4_name_mapping[cap_type]
-        cap_size = getObjectSize(cap_type)
+        cap_size = env.seL4_constants.object_sizes[cap_type]
         op_list.append(CapCreateOperation(cap_type, cap_dest, cap_size))
     return op_list
 
@@ -78,23 +70,24 @@ def genCapCopyOpList(cap_locations):
     return op_list
 
 
-def genCapOpList(cap_locations):
+def genCapOpList(cap_locations, load_segments_dict):
     op_list = OperationList()
     op_list.append(
         genCapCreateOpList(cap_locations) +
         genCapMintOpList(cap_locations) +
-        genCapCopyOpList(cap_locations))
+        genCapCopyOpList(cap_locations) +
+        ts_paging.genSegmentLoadOps(cap_locations, load_segments_dict))
     return op_list
 
 def genTailspringData():
     emitLine('#pragma once')
     emitLine('#include "tailspring.hpp"')
 
-    segment_load_ops = ts_st.genStartupThreadsObjFile()
+    load_segments_dict = ts_st.genStartupThreadsObjFile()
 
     cap_locations = getCapLocations()
 
-    cap_op_list = genCapOpList(cap_locations)
+    cap_op_list = genCapOpList(cap_locations, load_segments_dict)
     cap_op_list.emit('cap_operations')
 
     emitDefine('NUM_OPERATIONS', cap_op_list.getNumOps())
@@ -105,4 +98,4 @@ def genTailspringData():
 
     emitDefineWord('BYTES_REQUIRED', cap_op_list.getBytesRequired())
 
-    [op.emitExterns() for op in segment_load_ops]
+    [segment.emitExterns() for segment_list in load_segments_dict.values() for segment in segment_list]

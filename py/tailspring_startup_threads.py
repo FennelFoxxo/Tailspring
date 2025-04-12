@@ -6,23 +6,29 @@ def getLinkerScript():
     return f'SECTIONS {{ {final_section_name} : {{ *(.data) }} }}'
 
 def genStartupThreadsObjFile():
-    segment_load_ops = []
+    load_segments_dict = {}
     # Generate all our individual object files for each segment
     for vspace_name, thread_name in env.config.vspaces.items():
         thread_data = env.startup_threads[thread_name]
+
+        # Keep segments grouped together by vspace name
+        load_segments_dict[vspace_name] = []
         for i in range(thread_data.getNumSegments()):
-            segment_load_ops.append(genSegmentObjectFile(thread_data.getSegment(i), thread_name, i))
+            load_segments_dict[vspace_name].append(genSegmentObjectFile(thread_data.getSegment(i), thread_name, i))
 
     # Write a small linker script
     linker_script_path = env.temp_dir / 'script.ld'
     with open(linker_script_path, 'w') as f:
         f.write(getLinkerScript())
 
+    # load_segments_dict is a dict of lists - we want to flatten it and combine all the lists together
+    load_segments_flattened = [segment for segment_list in load_segments_dict.values() for segment in segment_list]
+
     # Combine each object file into final object file
     env.gcc.call([  '-static', '-nostdlib', '-Wl,-r,--build-id=none', '-Wl,-T', linker_script_path, '-o', env.output_startup_threads_obj_file]
-                    + [op.getPath() for op in segment_load_ops])
+                    + [op.getPath() for op in load_segments_flattened])
 
-    return segment_load_ops
+    return load_segments_dict
 
 
 def genSegmentObjectFile(segment, thread_name, segment_number):
@@ -42,4 +48,4 @@ def genSegmentObjectFile(segment, thread_name, segment_number):
                     f'{obj_file_name_no_ext}.bin',  # Input file
                     '-o', f'{obj_file_name_no_ext}.o' # Output file
                 ], cwd=env.temp_dir)
-    return SegmentLoadOperation(segment['p_vaddr'], segment['p_memsz'], env.temp_dir, obj_file_name_no_ext)
+    return LoadSegment(segment['p_vaddr'], segment['p_memsz'], env.temp_dir, obj_file_name_no_ext)

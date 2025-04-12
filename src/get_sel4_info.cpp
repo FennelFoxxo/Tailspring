@@ -36,6 +36,12 @@ void outputNum(const char* key, long value) {
     printf("\"%s\":%ld", key, value);
 }
 
+void outputString(const char* key, const char* value) {
+    if (!first_line) printf(",");
+    first_line = false;
+    printf("\"%s\":\"%s\"", key, value);
+}
+
 void startDict(const char* name) {
     if (!first_line) printf(",");
     printf("\"%s\":{", name);
@@ -50,41 +56,63 @@ void endDict() {
 #define outputExpr(EXPR) outputNum(#EXPR, EXPR)
 #define outputSymbolExists(symbol) outputNum(#symbol, symbolExists(symbol))
 
+void outputPagingInfo() {
+
+#ifdef seL4_PML4Bits
+    // Mapping mode is x86-64
+    outputString("mode", "x86-64");
+    return;
+#endif
+
+outputString("mode", "unknown");
+
+}
+
+
 int main() {
     printf("{");
 
     {
         startDict("literals");
-        
+
         outputExpr(seL4_WordBits);
         outputExpr(seL4_SlotBits);
-        
+
         endDict();
     }
-    
+
     {
         startDict("object_sizes");
 
         outputNum("seL4_TCBObject", seL4_TCBBits);
         outputNum("seL4_X86_4K", seL4_PageBits);
         outputNum("seL4_EndpointObject", seL4_EndpointBits);
-        
+
+        outputNum("seL4_X64_PML4Object", seL4_PML4Bits);
+        outputNum("seL4_X86_PDPTObject", seL4_PDPTBits);
+        outputNum("seL4_X86_PageDirectoryObject", seL4_PageDirBits);
+        outputNum("seL4_X86_PageTableObject", seL4_PageTableBits);
+
         endDict();
     }
-    
+
     {
         startDict("found_symbols");
 
         outputSymbolExists(seL4_X86_4K);
         outputSymbolExists(seL4_ARM_Page);
         outputSymbolExists(seL4_RISCV_4K_Page);
-        
+
         endDict();
-        
-        
+    }
+
+    {
+        startDict("paging");
+        outputPagingInfo();
+        endDict();
     }
 
     printf("}\n");
-    
+
 
 }

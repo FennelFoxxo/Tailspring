@@ -4,6 +4,24 @@ import yaml
 import json
 import subprocess
 from pathlib import Path
+from enum import Enum
+
+class PagingEnums(Enum):
+    PML4 = 1
+    PDPT = 2
+    PD = 3
+    PT = 4
+    Page = 5
+
+sel4_name_mapping = {
+    'tcb': 'seL4_TCBObject',
+    'frame': 'seL4_X86_4K',
+    'endpoint': 'seL4_EndpointObject',
+    PagingEnums.PML4:   'seL4_X64_PML4Object',
+    PagingEnums.PDPT:   'seL4_X86_PDPTObject',
+    PagingEnums.PD:     'seL4_X86_PageDirectoryObject',
+    PagingEnums.PT:     'seL4_X86_PageTableObject'
+}
 
 class Container:
     def __init__(self, attributes):

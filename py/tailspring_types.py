@@ -140,7 +140,7 @@ class ThreadData:
     def getSegment(self, index):
         return self.load_segments[index]
 
-class SegmentLoadOperation:
+class LoadSegment:
     def __init__(self, vaddr, size, parent_dir, filename):
         self.vaddr = vaddr
         self.size = size
@@ -158,4 +158,4 @@ class SegmentLoadOperation:
         emitLine(f'extern void* {self.getSymbolPrefix()}_size;')
 
 
-__all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations', 'ThreadData']
+__all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations', 'ThreadData', 'LoadSegment']
