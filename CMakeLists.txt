@@ -1,4 +1,4 @@
-project(Tailspring C)
+project(Tailspring C CXX)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(ExternalProject)
@@ -52,7 +52,7 @@ add_custom_command(
 add_custom_target(TAILSPRING_GEN_HEADER_TARGET DEPENDS ${TAILSPRING_GEN_HEADER_PATH})
 
 # Compile Tailspring thread
-add_executable(             tailspring ${TAILSPRING_SOURCE_DIR}/tailspring.c)
+add_executable(             tailspring ${TAILSPRING_SOURCE_DIR}/tailspring.cpp)
 target_include_directories( tailspring PRIVATE ${TAILSPRING_INCLUDE_DIR})
 target_link_libraries(      tailspring sel4muslcsys "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}")
 target_link_libraries(tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")

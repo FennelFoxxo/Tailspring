@@ -17,8 +17,12 @@ def emitDefineWord(name, value):
 def emitPreamble():
     emitLine(
         '#pragma once',
+        'extern "C" {',
         '#include <sel4/sel4.h>',
         '#include <stdint.h>',
+        '#include <sel4platsupport/bootinfo.h>',
+        '#include <stdio.h>',
+        '}',
         'typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOperation;',
         'typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOperation;',
         'typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;',

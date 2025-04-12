@@ -1,10 +1,5 @@
 #include "tailspring_gen_config.h"
 
-#include <sel4platsupport/bootinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-
 #define NON_DEVICE_UNTYPED_ARRAY_SIZE 100
 
 typedef struct {
@@ -22,6 +17,7 @@ seL4_Word num_non_device_untyped = 0;
 seL4_Word num_device_untyped = 0;
 UntypedInfo non_device_untyped_array[NON_DEVICE_UNTYPED_ARRAY_SIZE];
 
+void halt() __attribute__((noreturn));
 void halt() {
     while (1) seL4_TCB_Suspend(seL4_CapInitThreadTCB);
 }
@@ -90,9 +86,6 @@ seL4_Word getUntypedBestFitIndex(seL4_Word size_required) {
     // Will return ~0llu if no acceptable region found
     return best_fit_index;
 }
-
-
-
 
 bool doCreateOp(CapOperation* cap_op) {
     seL4_Word size_required = 1llu << CREATE_OP_SIZE_BITS(*cap_op);
