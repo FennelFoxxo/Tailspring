@@ -58,7 +58,7 @@ def processArgs():
                         help='Key-value pairs mapping startup thread names in the config file to the executable path')
 
     parser.add_argument('--output-header',
-                        dest='output_header_file_handle',
+                        dest='output_header_file',
                         required=True,
                         help='Path to the output generated header file')
 
@@ -73,5 +73,4 @@ if __name__ == '__main__':
     args = processArgs()
     initializeGlobals(args)
 
-    header_string = ts_core.genTailspringData()
-    output_header_file.write(header_string)
+    ts_core.genTailspringData()

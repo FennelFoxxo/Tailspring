@@ -14,7 +14,7 @@ class CNodeCreateOperation:
     def __init__(self, dest, slot_bits, guard):
         self.dest = dest
         self.slot_bits = slot_bits
-        self.size_bits = slot_bits + seL4_constants.literals.seL4_SlotBits
+        self.size_bits = slot_bits + env.seL4_constants.literals.seL4_SlotBits
         self.guard = guard
     def __str__(self):
         return f'{{CNODE_CREATE, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
@@ -71,14 +71,10 @@ class OperationList:
         self.create_op_list.sort(key = lambda op: op.size_bits, reverse=True)
         return self.create_op_list + self.mint_op_list + self.copy_op_list
 
-    def formatAsC(self, var_name):
-        output_string = f'CapOperation {var_name}[] = {{\n'
-
-        op_string = ',\n'.join([str(op) for op in self.getOpList()])
-        output_string += op_string
-
-        output_string += '\n};\n'
-        return output_string
+    def emit(self, var_name):
+        emitLine(f'CapOperation {var_name}[] = {{')
+        [emitLine(str(op) + ',') for op in self.getOpList()]
+        emitLine('};')
 
 class CapLocations:
     def __init__(self):
@@ -117,16 +113,14 @@ class SegmentLoadOperation:
         self.filename = filename
 
     def getPath(self):
-        return f'{self.parent_dir}/{self.filename}.o'
+        return self.parent_dir / f'{self.filename}.o'
 
     def getSymbolPrefix(self):
         return f'_binary_{self.filename}_bin'
 
-    def formatAsCExterns(self):
-        output_string =  f'extern void* {self.getSymbolPrefix()}_start;\n'
-        output_string += f'extern void* {self.getSymbolPrefix()}_size;\n'
-        return output_string
-
+    def emitExterns(self):
+        emitLine(f'extern void* {self.getSymbolPrefix()}_start;')
+        emitLine(f'extern void* {self.getSymbolPrefix()}_size;')
 
 
 __all__ = [att for att in dir() if att.endswith('Operation')] + ['OperationList', 'CapLocations', 'ThreadData']
