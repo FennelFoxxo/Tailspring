@@ -14,7 +14,7 @@ extern "C" {
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP, TCB_SETUP_OP};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP, TCB_SETUP_OP, MAP_FRAME_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -59,9 +59,18 @@ struct SegmentLoadOperation {
 
 struct TCBSetupOperation {
     seL4_Word entry_addr;
+    seL4_Word stack_top_addr;
+    seL4_Word ipc_buffer_addr;
     uint32_t cspace;
     uint32_t vspace;
+    uint32_t ipc_buffer;
     uint32_t tcb;
+};
+
+struct MapFrameOperation {
+    seL4_Word vaddr;
+    uint32_t frame;
+    uint32_t vspace;
 };
 
 struct CapOperation {
@@ -74,6 +83,7 @@ struct CapOperation {
         MapOperation map_op;
         SegmentLoadOperation segment_load_op;
         TCBSetupOperation tcb_setup_op;
+        MapFrameOperation map_frame_op;
     };
 };
 

@@ -93,17 +93,34 @@ class SegmentLoadOperation(Operation):
             vspace = self.vspace)
 
 class TCBSetupOperation(Operation):
-    def __init__(self, tcb, cspace, vspace, entry_addr):
+    def __init__(self, tcb, cspace, vspace, ipc_buffer, ipc_buffer_addr, entry_addr, stack_top_addr):
         self.tcb = tcb
         self.cspace = cspace
         self.vspace = vspace
+        self.ipc_buffer = ipc_buffer
+        self.ipc_buffer_addr = ipc_buffer_addr
         self.entry_addr = entry_addr
+        self.stack_top_addr = stack_top_addr
     def __str__(self):
         return self.toString('tcb_setup_op',
             entry_addr = self.entry_addr,
+            stack_top_addr = self.stack_top_addr,
+            ipc_buffer_addr = self.ipc_buffer_addr,
             cspace = self.cspace,
             vspace = self.vspace,
+            ipc_buffer = self.ipc_buffer,
             tcb = self.tcb)
+
+class MapFrameOperation(Operation):
+    def __init__(self, frame, vspace, vaddr):
+        self.frame = frame
+        self.vspace = vspace
+        self.vaddr = vaddr
+    def __str__(self):
+        return self.toString('map_frame_op',
+            vaddr = self.vaddr,
+            frame = self.frame,
+            vspace = self.vspace)
 
 class OperationList:
     def __init__(self):
@@ -113,6 +130,7 @@ class OperationList:
         self.map_op_list = []
         self.segment_load_op_list = []
         self.tcb_setup_op_list = []
+        self.map_frame_op_list = []
 
     def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
@@ -127,6 +145,8 @@ class OperationList:
             self.segment_load_op_list.append(op)
         elif type(op) == TCBSetupOperation:
             self.tcb_setup_op_list.append(op)
+        elif type(op) == MapFrameOperation:
+            self.map_frame_op_list.append(op)
 
     def append(self, ops):
         if type(ops) == list:
@@ -145,7 +165,8 @@ class OperationList:
                 + self.copy_op_list
                 + self.map_op_list
                 + self.segment_load_op_list
-                + self.tcb_setup_op_list)
+                + self.tcb_setup_op_list
+                + self.map_frame_op_list)
 
     def emit(self, var_name):
         emitLine(f'CapOperation {var_name}[] = {{')
@@ -183,6 +204,24 @@ class ThreadData:
 
     def getEntryAddress(self):
         return self.elf_file.header.e_entry
+
+    def setStackAddress(self, stack_addr):
+        self.stack_addr = stack_addr
+
+    def getStackAddress(self):
+        return self.stack_addr
+
+    def setStackSize(self, stack_size):
+        self.stack_size = stack_size
+
+    def getStackSize(self):
+        return self.stack_size
+
+    def setIPCBufferAddress(self, ipc_buffer_addr):
+        self.ipc_buffer_addr = ipc_buffer_addr
+
+    def getIPCBufferAddress(self):
+        return self.ipc_buffer_addr
 
 class LoadSegment:
     def __init__(self, vaddr, size, parent_dir, filename):

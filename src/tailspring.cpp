@@ -76,6 +76,10 @@ void printOp(const CapOperation* c) {
             printf("TCB Setup (tcb=%u) (cspace=%u) (vspace=%u) (entry addr=%lx)\n",
                 c->tcb_setup_op.tcb, c->tcb_setup_op.cspace, c->tcb_setup_op.vspace, c->tcb_setup_op.entry_addr);
             break;
+        case MAP_FRAME_OP:
+            printf("Map frame (frame=%u) (vspace=%u) (vaddr=%lx)\n",
+                c->map_frame_op.frame, c->map_frame_op.vspace, c->map_frame_op.vaddr);
+            break;
     }
 }
 
@@ -181,7 +185,9 @@ bool doTCBSetupOp(CapOperation* cap_op) {
         first_empty_slot + cap_op->tcb_setup_op.cspace,
         0,
         first_empty_slot + cap_op->tcb_setup_op.vspace,
-        0, 0, 0);
+        0,
+        cap_op->tcb_setup_op.ipc_buffer_addr,
+        first_empty_slot + cap_op->tcb_setup_op.ipc_buffer);
     if (error != seL4_NoError) return false;
 
     seL4_UserContext regs = {0};
@@ -189,11 +195,19 @@ bool doTCBSetupOp(CapOperation* cap_op) {
     if (error != seL4_NoError) return false;
 
     sel4utils_set_instruction_pointer(&regs, cap_op->tcb_setup_op.entry_addr);
+    sel4utils_set_stack_pointer(&regs, cap_op->tcb_setup_op.stack_top_addr);
 
     error = seL4_TCB_WriteRegisters(first_empty_slot + cap_op->tcb_setup_op.tcb, 0, 0, sizeof(regs)/sizeof(seL4_Word), &regs);
     if (error != seL4_NoError) return false;
 
     return true;
+}
+
+bool doMapFrameOp(CapOperation* cap_op) {
+    seL4_Error error = pageMapFunc( first_empty_slot + cap_op->map_frame_op.frame,
+                        first_empty_slot + cap_op->map_frame_op.vspace,
+                        cap_op->map_frame_op.vaddr);
+    return (error == seL4_NoError);
 }
 
 bool dispatchOperation(CapOperation* cap_op) {
@@ -212,6 +226,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doSegmentLoadOp(cap_op);
         case TCB_SETUP_OP:
             return doTCBSetupOp(cap_op);
+        case MAP_FRAME_OP:
+            return doMapFrameOp(cap_op);
         default:
             halt();
     }

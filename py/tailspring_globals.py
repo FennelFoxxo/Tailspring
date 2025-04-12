@@ -62,6 +62,11 @@ def emitLine(*args):
     global env
     env.output_header_file.write('\n'.join(args) + '\n')
 
+# Calculate how much would need to be added to n to make it a multiple of alignment
+def calcPadding(n, alignment):
+    r = n % alignment
+    return 0 if r == 0 else alignment - r
+
 env = Env()
 
 def initializeGlobals(args):

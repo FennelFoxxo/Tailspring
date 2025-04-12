@@ -30,10 +30,6 @@ def genStartupThreadsObjFile():
 
     return load_segments_dict
 
-def calcPadding(n, alignment):
-    r = n % alignment
-    return 0 if r == 0 else alignment - r
-
 def genSegmentObjectFile(segment, thread_name, segment_number):
     obj_file_name_no_ext = f'startup_thread_{thread_name}_segment_{segment_number}'
 
