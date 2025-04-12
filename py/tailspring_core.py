@@ -91,7 +91,6 @@ def genTailspringData():
     cap_op_list.emit('cap_operations')
 
     emitDefine('NUM_OPERATIONS', cap_op_list.getNumOps())
-    emitDefine('NUM_CREATE_OPERATIONS', cap_op_list.getNumCreateOps())
 
     num_slots_required = cap_locations.getSlotsRequired()
     emitDefineWord('SLOTS_REQUIRED', num_slots_required)

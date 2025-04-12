@@ -133,6 +133,11 @@ bool doMutateOp(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
+bool doMapOp(CapOperation* cap_op) {
+    mappingFuncType map_func = mapping_funcs[cap_op->map_op.mapping_func_index];
+    return (map_func(cap_op, first_empty_slot) == seL4_NoError);
+}
+
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
         case CREATE_OP:
@@ -143,6 +148,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doMintOp(cap_op);
         case MUTATE_OP:
             return doMutateOp(cap_op);
+        case MAP_OP:
+            return doMapOp(cap_op);
         default:
             halt();
     }

@@ -4,14 +4,14 @@ import yaml
 import json
 import subprocess
 from pathlib import Path
-from enum import Enum
+import enum
 
-class PagingEnums(Enum):
-    PML4 = 1
-    PDPT = 2
-    PD = 3
-    PT = 4
-    Page = 5
+class PagingEnums(enum.Enum):
+    PML4 = 0
+    PDPT = enum.auto()
+    PD = enum.auto()
+    PT = enum.auto()
+    Page = enum.auto()
 
 sel4_name_mapping = {
     'tcb': 'seL4_TCBObject',

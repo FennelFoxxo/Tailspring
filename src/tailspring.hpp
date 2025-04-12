@@ -13,7 +13,7 @@ extern "C" {
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -42,6 +42,13 @@ struct CapMutateOperation {
     uint32_t dest;
 };
 
+struct MapOperation {
+    seL4_Word vaddr;
+    uint32_t service;
+    uint32_t vspace;
+    uint16_t mapping_func_index;
+};
+
 struct CapOperation {
     CapOperationType op_type;
     union {
@@ -49,6 +56,7 @@ struct CapOperation {
         CapMintOperation mint_op;
         CapCopyOperation copy_op;
         CapMutateOperation mutate_op;
+        MapOperation map_op;
     };
 };
 
@@ -61,3 +69,5 @@ struct UntypedInfo {
 // The startup thread data should also be at the start of this thread's memory,
 // so this address should point to the first frame in userImageFrames
 extern void* _startup_threads_data_start;
+
+typedef seL4_Error (*mappingFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);

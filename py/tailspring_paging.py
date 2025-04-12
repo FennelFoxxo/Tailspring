@@ -17,6 +17,38 @@ paging_structures_bits = {
     PagingEnums.Page:   12
 }
 
+mapping_funcs = {
+    PagingEnums.PML4:
+        ('seL4_X86_ASIDPool_Assign('
+            'seL4_CapInitThreadASIDPool,'
+            'first_empty_slot + cap_op->map_op.service);'),
+    PagingEnums.PDPT:
+        ('seL4_X86_PDPT_Map('
+            'first_empty_slot + cap_op->map_op.service,'
+            'first_empty_slot + cap_op->map_op.vspace,'
+            'cap_op->map_op.vaddr,'
+            'seL4_X86_Default_VMAttributes);'),
+    PagingEnums.PD:
+        ('seL4_X86_PageDirectory_Map('
+            'first_empty_slot + cap_op->map_op.service,'
+            'first_empty_slot + cap_op->map_op.vspace,'
+            'cap_op->map_op.vaddr,'
+            'seL4_X86_Default_VMAttributes);'),
+    PagingEnums.PT:
+        ('seL4_X86_PageTable_Map('
+            'first_empty_slot + cap_op->map_op.service,'
+            'first_empty_slot + cap_op->map_op.vspace,'
+            'cap_op->map_op.vaddr,'
+            'seL4_X86_Default_VMAttributes);'),
+    PagingEnums.Page:
+        ('seL4_X86_Page_Map('
+            'first_empty_slot + cap_op->map_op.service,'
+            'first_empty_slot + cap_op->map_op.vspace,'
+            'cap_op->map_op.vaddr,'
+            'seL4_ReadWrite,'
+            'seL4_X86_Default_VMAttributes);'),
+}
+
 # Arranged from top-most structure to bottom-most
 x86_64_paging_structures_order = [PagingEnums.PML4, PagingEnums.PDPT, PagingEnums.PD, PagingEnums.PT, PagingEnums.Page]
 
@@ -67,7 +99,7 @@ class PagingStructure:
                     candidate_vaddr_lower)
                 new_child.createChildrenToCoverRanges(load_ranges)
                 self.children.append(new_child)
-    
+
     def genCreateOps(self, vspace_name, cap_locations):
         # If this is the top level cap, use the vspace name as the cap name
         # Otherwise, create a unique identifier
@@ -76,24 +108,45 @@ class PagingStructure:
         else:
             cap_name = f'{vspace_name}_{self.structure_type.name}_{self.vaddr}__'
         cap_locations.append(cap_name)
-        
+
         cap_dest = cap_locations[cap_name]
         cap_type = sel4_name_mapping[self.structure_type]
         cap_size = env.seL4_constants.object_sizes[cap_type]
-        
-        op_list = [CapCreateOperation(cap_type, cap_dest, cap_size)]
+
+        op_list = []
+        op_list.append(CapCreateOperation(cap_type, cap_dest, cap_size))
+        op_list.append(MapOperation(cap_dest, cap_locations[vspace_name], self.vaddr, self.structure_type.value))
+
         [op_list.extend(child.genCreateOps(vspace_name, cap_locations)) for child in self.children]
         return op_list
-        
+
+def emitPagingFuncs(structures_order):
+    # Emit function definitions
+    for structure_enum in structures_order:
+        func_name = f'mappingFunc{structure_enum.value}_'
+        func_signature = '(CapOperation* cap_op, seL4_Word first_empty_slot)'
+        emitLine(f'seL4_Error {func_name}{func_signature} {{ return {mapping_funcs[structure_enum]} }}')
+
+    # Emit function array
+    emitLine('mappingFuncType mapping_funcs[] = {')
+    for structure_enum in structures_order:
+        func_name = f'mappingFunc{structure_enum.value}_'
+        emitLine(f'{func_name},')
+    emitLine('};')
+
 def genPagingStructuresCreationOps(cap_locations, vspace_name, load_segments):
     address_ranges_to_map = [(segment.vaddr, segment.vaddr + segment.size) for segment in load_segments]
     mode = env.seL4_constants.paging.mode
-    
+
     if mode == 'x86-64':
-        top_paging_structure = PagingStructure(x86_64_paging_structures_order[0], x86_64_paging_structures_order, 0)
+        structures_order = x86_64_paging_structures_order
     else:
         raise Exception(f"Don't know how to create paging structures for {mode}")
-    
+
+    emitPagingFuncs(structures_order)
+    top_paging_structure = PagingStructure(structures_order[0], x86_64_paging_structures_order, 0)
+
+
     top_paging_structure.createChildrenToCoverRanges(address_ranges_to_map)
     return top_paging_structure.genCreateOps(vspace_name, cap_locations)
 

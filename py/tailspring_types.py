@@ -66,11 +66,25 @@ class CapCopyOperation(Operation):
             dest_index = self.dest_index,
             dest_depth = self.dest_depth)
 
+class MapOperation(Operation):
+    def __init__(self, service, vspace, vaddr, mapping_func_index):
+        self.service = service
+        self.vspace = vspace
+        self.vaddr = vaddr
+        self.mapping_func_index = mapping_func_index
+    def __str__(self):
+        return self.toString('map_op',
+            vaddr = self.vaddr,
+            service = self.service,
+            vspace = self.vspace,
+            mapping_func_index = self.mapping_func_index)
+
 class OperationList:
     def __init__(self):
         self.create_op_list = []
         self.mint_op_list = []
         self.copy_op_list = []
+        self.map_op_list = []
 
     def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
@@ -79,6 +93,8 @@ class OperationList:
             self.mint_op_list.append(op)
         elif type(op) == CapCopyOperation:
             self.copy_op_list.append(op)
+        elif type(op) == MapOperation:
+            self.map_op_list.append(op)
 
     def append(self, ops):
         if type(ops) == list:
@@ -86,17 +102,8 @@ class OperationList:
         else:
             self.appendSingle(ops)
 
-    def getNumCreateOps(self):
-        return len(self.create_op_list)
-
-    def getNumMintOps(self):
-        return len(self.mint_op_list)
-
-    def getNumCopyOps(self):
-        return len(self.copy_op_list)
-
     def getNumOps(self):
-        return self.getNumCreateOps() + self.getNumMintOps() + self.getNumCopyOps()
+        return len(self.getOpList())
 
     def getBytesRequired(self):
         return sum([1 << (op.size_bits) for op in self.create_op_list])
@@ -104,7 +111,7 @@ class OperationList:
     def getOpList(self):
         # Sort so that biggest operations are at the beginning
         self.create_op_list.sort(key = lambda op: op.bytes_required, reverse=True)
-        return self.create_op_list + self.mint_op_list + self.copy_op_list
+        return self.create_op_list + self.mint_op_list + self.copy_op_list + self.map_op_list
 
     def emit(self, var_name):
         emitLine(f'CapOperation {var_name}[] = {{')
