@@ -11,21 +11,15 @@ extern "C" {
 #define CAP_ALLOW_READ (1<<1)
 #define CAP_ALLOW_GRANT (1<<2)
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
-#define CREATE_OP_SIZE_BITS(cap_op) (((cap_op).op_type == CAP_CREATE ? (cap_op).cap_create_op.size_bits : (cap_op).cnode_create_op.slot_bits + seL4_SlotBits))
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CAP_CREATE,CNODE_CREATE,CAP_MINT,CAP_COPY};
+enum CapOperationType {CAP_CREATE, CAP_MINT, CAP_COPY, CAP_MUTATE};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
+    seL4_Word bytes_required;
     uint32_t dest;
     uint8_t size_bits;
-};
-
-struct CNodeCreateOperation {
-    uint32_t dest;
-    uint8_t slot_bits;
-    uint8_t guard;
 };
 
 struct CapMintOperation {
@@ -42,13 +36,19 @@ struct CapCopyOperation {
     uint8_t dest_depth;
 };
 
+struct CapMutateOperation {
+    seL4_Word guard;
+    uint32_t src;
+    uint32_t dest;
+};
+
 struct CapOperation {
     CapOperationType op_type;
     union {
-        CapCreateOperation cap_create_op;
-        CNodeCreateOperation cnode_create_op;
+        CapCreateOperation create_op;
         CapMintOperation mint_op;
         CapCopyOperation copy_op;
+        CapMutateOperation mutate_op;
     };
 };
 

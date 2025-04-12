@@ -49,11 +49,7 @@ void loadBootInfo() {
 void printOp(const CapOperation* c) {
     switch (c->op_type) {
         case CAP_CREATE:
-            printf("Create (size=%u) (dest=%u)\n", c->cap_create_op.size_bits, c->cap_create_op.dest);
-            break;
-
-        case CNODE_CREATE:
-            printf("CNode create (size=%u) (guard=%u) (dest=%u)\n", c->cnode_create_op.slot_bits, c->cnode_create_op.guard, c->cnode_create_op.dest);
+            printf("Create (size=%u) (dest=%u)\n", c->create_op.size_bits, c->create_op.dest);
             break;
         case CAP_MINT:
             printf("Mint (src=%u) (dest=%u) (badge=%lu) (rights=%u)\n", c->mint_op.src, c->mint_op.dest, c->mint_op.badge, c->mint_op.rights);
@@ -61,17 +57,20 @@ void printOp(const CapOperation* c) {
         case CAP_COPY:
             printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n", c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
             break;
+        case CAP_MUTATE:
+            printf("Mutate (src=%u) (dest=%u) (guard=%lu)\n", c->mutate_op.src, c->mutate_op.dest, c->mutate_op.guard);
+            break;
     }
 }
 
-seL4_Word getUntypedBestFitIndex(seL4_Word size_required) {
+seL4_Word getUntypedBestFitIndex(seL4_Word bytes_required) {
     // Keep track of smallest untyped that fits this object
     seL4_Word best_fit_index = ~0llu;
     seL4_Word best_fit_size = ~0llu;
     for (seL4_Word untyped_index = 0; untyped_index < num_non_device_untyped; untyped_index++) {
         seL4_Word untyped_size = non_device_untyped_array[untyped_index].bytes_left;
         // If the untyped is big enough for this object
-        if (untyped_size >= size_required) {
+        if (untyped_size >= bytes_required) {
             // If the untyped is a better fit than our current best fit
             if (untyped_size < best_fit_size) {
                 best_fit_index = untyped_index;
@@ -84,38 +83,20 @@ seL4_Word getUntypedBestFitIndex(seL4_Word size_required) {
 }
 
 bool doCreateOp(CapOperation* cap_op) {
-    seL4_Word size_required = 1llu << CREATE_OP_SIZE_BITS(*cap_op);
-    seL4_Word untyped_index = getUntypedBestFitIndex(size_required);
+    seL4_Word bytes_required = cap_op->create_op.bytes_required;
+    seL4_Word untyped_index = getUntypedBestFitIndex(bytes_required);
     if (untyped_index == ~0llu) return false;
-    non_device_untyped_array[untyped_index].bytes_left -= size_required;
+    non_device_untyped_array[untyped_index].bytes_left -= bytes_required;
 
     seL4_CPtr untyped = non_device_untyped_array[untyped_index].cptr;
 
 
-    seL4_Error error;
-
-    if (cap_op->op_type == CAP_CREATE) {
-        error = seL4_Untyped_Retype(untyped,
-                                    cap_op->cap_create_op.cap_type,
-                                    cap_op->cap_create_op.size_bits,
+    seL4_Error error = seL4_Untyped_Retype(untyped,
+                                    cap_op->create_op.cap_type,
+                                    cap_op->create_op.size_bits,
                                     seL4_CapInitThreadCNode, 0, 0,
-                                    first_empty_slot + cap_op->cap_create_op.dest,
+                                    first_empty_slot + cap_op->create_op.dest,
                                     1);
-        return (error == seL4_NoError);
-    }
-
-    // If we're creating a CNode then we need to first create it into slot 0,
-    // then mutate it into its destination slot to set its guard
-    error = seL4_Untyped_Retype(untyped,
-                                seL4_CapTableObject,
-                                cap_op->cnode_create_op.slot_bits,
-                                seL4_CapInitThreadCNode, 0, 0,
-                                first_empty_slot, 1);
-    if (error != seL4_NoError) return false;
-
-    error = seL4_CNode_Mutate(  seL4_CapInitThreadCNode, first_empty_slot + cap_op->cnode_create_op.dest, seL4_WordBits,
-                                seL4_CapInitThreadCNode, first_empty_slot, seL4_WordBits,
-                                cap_op->cnode_create_op.guard);
     return (error == seL4_NoError);
 }
 
@@ -145,16 +126,23 @@ bool doMintOp(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
+bool doMutateOp(CapOperation* cap_op) {
+    seL4_Error error = seL4_CNode_Mutate(   seL4_CapInitThreadCNode, first_empty_slot + cap_op->mutate_op.dest, seL4_WordBits,
+                                            seL4_CapInitThreadCNode, first_empty_slot + cap_op->mutate_op.src, seL4_WordBits,
+                                            cap_op->mutate_op.guard);
+    return (error == seL4_NoError);
+}
+
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
         case CAP_CREATE:
-            return doCreateOp(cap_op);
-        case CNODE_CREATE:
             return doCreateOp(cap_op);
         case CAP_COPY:
             return doCopyOp(cap_op);
         case CAP_MINT:
             return doMintOp(cap_op);
+        case CAP_MUTATE:
+            return doMutateOp(cap_op);
         default:
             halt();
     }

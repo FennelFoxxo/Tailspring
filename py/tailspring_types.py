@@ -7,17 +7,19 @@ class CapCreateOperation:
         self.cap_type = cap_type
         self.dest = dest
         self.size_bits = size_bits
+        self.bytes_required = 1 << size_bits
     def __str__(self):
-        return f'{{CAP_CREATE, .cap_create_op={{{self.cap_type}, {self.dest}, {self.size_bits}}}}}'
+        return f'{{CAP_CREATE, .create_op={{{self.cap_type}, {self.bytes_required}, {self.dest}, {self.size_bits}}}}}'
 
 class CNodeCreateOperation:
-    def __init__(self, dest, slot_bits, guard):
+    def __init__(self, dest, size_bits, guard):
         self.dest = dest
-        self.slot_bits = slot_bits
-        self.size_bits = slot_bits + env.seL4_constants.literals.seL4_SlotBits
+        self.size_bits = size_bits
+        self.bytes_required = 1 << (size_bits + env.seL4_constants.literals.seL4_SlotBits)
         self.guard = guard
     def __str__(self):
-        return f'{{CNODE_CREATE, .cnode_create_op={{{self.dest}, {self.slot_bits}, {self.guard}}}}}'
+        return (f'{{CAP_CREATE, .create_op={{seL4_CapTableObject, {self.bytes_required}, 0, {self.size_bits}}}}},\n'
+                f'{{CAP_MUTATE, .mutate_op={{{self.guard}, 0, {self.dest}}}}}')
 
 class CapMintOperation:
     def __init__(self, badge, src, dest, rights):
