@@ -5,6 +5,7 @@ extern "C" {
 #include <stdint.h>
 #include <sel4platsupport/bootinfo.h>
 #include <stdio.h>
+#include <sel4utils/util.h>
 }
 
 #define CAP_ALLOW_WRITE (1<<0)
@@ -13,7 +14,7 @@ extern "C" {
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 
-enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP, TCB_SETUP_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -56,6 +57,13 @@ struct SegmentLoadOperation {
     uint32_t vspace;
 };
 
+struct TCBSetupOperation {
+    seL4_Word entry_addr;
+    uint32_t cspace;
+    uint32_t vspace;
+    uint32_t tcb;
+};
+
 struct CapOperation {
     CapOperationType op_type;
     union {
@@ -65,6 +73,7 @@ struct CapOperation {
         CapMutateOperation mutate_op;
         MapOperation map_op;
         SegmentLoadOperation segment_load_op;
+        TCBSetupOperation tcb_setup_op;
     };
 };
 

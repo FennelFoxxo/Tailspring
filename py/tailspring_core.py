@@ -69,6 +69,21 @@ def genCapCopyOpList(cap_locations):
             op_list.append(CapCopyOperation(src, dest_root, cap_pos, depth))
     return op_list
 
+def genTCBSetupOpList(cap_locations):
+    op_list = []
+    for tcb_name, tcb_config in env.config.threads.items():
+        cspace_name = tcb_config['cspace']
+        vspace_name = tcb_config['vspace']
+
+        cspace = cap_locations[cspace_name]
+        vspace = cap_locations[vspace_name]
+
+        thread_name = env.config.vspaces[vspace_name]
+        entry_addr = env.startup_threads[thread_name].getEntryAddress()
+
+        op_list.append(TCBSetupOperation(cap_locations[tcb_name], cspace, vspace, entry_addr))
+
+    return op_list
 
 def genCapOpList(cap_locations, load_segments_dict):
     op_list = OperationList()
@@ -76,7 +91,8 @@ def genCapOpList(cap_locations, load_segments_dict):
         genCapCreateOpList(cap_locations) +
         genCapMintOpList(cap_locations) +
         genCapCopyOpList(cap_locations) +
-        ts_paging.genSegmentLoadOps(cap_locations, load_segments_dict))
+        ts_paging.genSegmentLoadOps(cap_locations, load_segments_dict) +
+        genTCBSetupOpList(cap_locations))
     return op_list
 
 def genTailspringData():

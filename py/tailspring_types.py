@@ -92,6 +92,19 @@ class SegmentLoadOperation(Operation):
             segment_length = self.segment_length,
             vspace = self.vspace)
 
+class TCBSetupOperation(Operation):
+    def __init__(self, tcb, cspace, vspace, entry_addr):
+        self.tcb = tcb
+        self.cspace = cspace
+        self.vspace = vspace
+        self.entry_addr = entry_addr
+    def __str__(self):
+        return self.toString('tcb_setup_op',
+            entry_addr = self.entry_addr,
+            cspace = self.cspace,
+            vspace = self.vspace,
+            tcb = self.tcb)
+
 class OperationList:
     def __init__(self):
         self.create_op_list = []
@@ -99,6 +112,7 @@ class OperationList:
         self.copy_op_list = []
         self.map_op_list = []
         self.segment_load_op_list = []
+        self.tcb_setup_op_list = []
 
     def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
@@ -111,6 +125,8 @@ class OperationList:
             self.map_op_list.append(op)
         elif type(op) == SegmentLoadOperation:
             self.segment_load_op_list.append(op)
+        elif type(op) == TCBSetupOperation:
+            self.tcb_setup_op_list.append(op)
 
     def append(self, ops):
         if type(ops) == list:
@@ -128,7 +144,8 @@ class OperationList:
                 + self.mint_op_list
                 + self.copy_op_list
                 + self.map_op_list
-                + self.segment_load_op_list)
+                + self.segment_load_op_list
+                + self.tcb_setup_op_list)
 
     def emit(self, var_name):
         emitLine(f'CapOperation {var_name}[] = {{')
@@ -163,6 +180,9 @@ class ThreadData:
 
     def getSegment(self, index):
         return self.load_segments[index]
+
+    def getEntryAddress(self):
+        return self.elf_file.header.e_entry
 
 class LoadSegment:
     def __init__(self, vaddr, size, parent_dir, filename):

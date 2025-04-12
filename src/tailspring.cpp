@@ -72,6 +72,10 @@ void printOp(const CapOperation* c) {
             printf("Segment load (vspace=%u) (vaddr=%lx) (length=%lx)\n",
                 c->segment_load_op.vspace, c->segment_load_op.segment_dest_vaddr, c->segment_load_op.segment_length);
             break;
+        case TCB_SETUP_OP:
+            printf("TCB Setup (tcb=%u) (cspace=%u) (vspace=%u) (entry addr=%lx)\n",
+                c->tcb_setup_op.tcb, c->tcb_setup_op.cspace, c->tcb_setup_op.vspace, c->tcb_setup_op.entry_addr);
+            break;
     }
 }
 
@@ -170,6 +174,28 @@ bool doSegmentLoadOp(CapOperation* cap_op) {
     return true;
 }
 
+bool doTCBSetupOp(CapOperation* cap_op) {
+    seL4_Error error = seL4_TCB_Configure(
+        first_empty_slot + cap_op->tcb_setup_op.tcb,
+        0,
+        first_empty_slot + cap_op->tcb_setup_op.cspace,
+        0,
+        first_empty_slot + cap_op->tcb_setup_op.vspace,
+        0, 0, 0);
+    if (error != seL4_NoError) return false;
+
+    seL4_UserContext regs = {0};
+    error = seL4_TCB_ReadRegisters(first_empty_slot + cap_op->tcb_setup_op.tcb, 0, 0, sizeof(regs)/sizeof(seL4_Word), &regs);
+    if (error != seL4_NoError) return false;
+
+    sel4utils_set_instruction_pointer(&regs, cap_op->tcb_setup_op.entry_addr);
+
+    error = seL4_TCB_WriteRegisters(first_empty_slot + cap_op->tcb_setup_op.tcb, 0, 0, sizeof(regs)/sizeof(seL4_Word), &regs);
+    if (error != seL4_NoError) return false;
+
+    return true;
+}
+
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
         case CREATE_OP:
@@ -184,6 +210,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doMapOp(cap_op);
         case SEGMENT_LOAD_OP:
             return doSegmentLoadOp(cap_op);
+        case TCB_SETUP_OP:
+            return doTCBSetupOp(cap_op);
         default:
             halt();
     }
