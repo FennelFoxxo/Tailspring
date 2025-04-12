@@ -72,13 +72,19 @@ class OperationList:
         self.mint_op_list = []
         self.copy_op_list = []
 
-    def append(self, op):
+    def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
             self.create_op_list.append(op)
         elif type(op) == CapMintOperation:
             self.mint_op_list.append(op)
         elif type(op) == CapCopyOperation:
             self.copy_op_list.append(op)
+
+    def append(self, ops):
+        if type(ops) == list:
+            [self.appendSingle(each_op) for each_op in ops]
+        else:
+            self.appendSingle(ops)
 
     def getNumCreateOps(self):
         return len(self.create_op_list)

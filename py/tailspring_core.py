@@ -80,9 +80,10 @@ def genCapCopyOpList(cap_locations):
 
 def genCapOpList(cap_locations):
     op_list = OperationList()
-    [op_list.append(op) for op in genCapCreateOpList(cap_locations)]
-    [op_list.append(op) for op in genCapMintOpList(cap_locations)]
-    [op_list.append(op) for op in genCapCopyOpList(cap_locations)]
+    op_list.append(
+        genCapCreateOpList(cap_locations) +
+        genCapMintOpList(cap_locations) +
+        genCapCopyOpList(cap_locations))
     return op_list
 
 def genTailspringData():
