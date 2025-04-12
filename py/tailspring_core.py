@@ -14,33 +14,6 @@ def emitDefine(name, value):
 def emitDefineWord(name, value):
     emitLine(f'#define {name} ((seL4_Word){value})')
 
-def emitPreamble():
-    emitLine(
-        '#pragma once',
-        'extern "C" {',
-        '#include <sel4/sel4.h>',
-        '#include <stdint.h>',
-        '#include <sel4platsupport/bootinfo.h>',
-        '#include <stdio.h>',
-        '}',
-        'typedef struct {seL4_Word cap_type;uint32_t dest;uint8_t size_bits;} CapCreateOperation;',
-        'typedef struct {uint32_t dest;uint8_t slot_bits;uint8_t guard;} CNodeCreateOperation;',
-        'typedef struct {seL4_Word badge;uint32_t src;uint32_t dest;uint8_t rights;} CapMintOperation;',
-        'typedef struct {uint32_t src;uint32_t dest_root;uint32_t dest_index;uint8_t dest_depth;} CapCopyOperation;',
-        'typedef enum {CAP_CREATE,CNODE_CREATE,CAP_MINT,CAP_COPY} CapOperationType;',
-        'typedef struct {CapOperationType op_type;',
-            'union {CapCreateOperation cap_create_op;CNodeCreateOperation cnode_create_op;CapMintOperation mint_op;CapCopyOperation copy_op;};',
-        '} CapOperation;'
-    )
-    emitDefine('CAP_ALLOW_WRITE',         '1<<0')
-    emitDefine('CAP_ALLOW_READ',          '1<<1')
-    emitDefine('CAP_ALLOW_GRANT',         '1<<2')
-    emitDefine('CAP_ALLOW_GRANT_REPLY',   '1<<3')
-    emitDefine('CREATE_OP_SIZE_BITS(cap_op)',
-        '((cap_op).op_type == CAP_CREATE ? (cap_op).cap_create_op.size_bits : (cap_op).cnode_create_op.slot_bits + seL4_SlotBits)')
-    emitDefine('SYM_VAL(sym)', '(seL4_Word)(&sym)')
-    emitLine('extern void* _startup_threads_data_start;')
-
 def getCapLocations():
     cap_locations = CapLocations()
 
@@ -115,11 +88,12 @@ def genCapOpList(cap_locations):
     return op_list
 
 def genTailspringData():
+    emitLine('#pragma once')
+    emitLine('#include "tailspring.hpp"')
+
     segment_load_ops = ts_st.genStartupThreadsObjFile()
 
     cap_locations = getCapLocations()
-
-    emitPreamble()
 
     cap_op_list = genCapOpList(cap_locations)
     cap_op_list.emit('cap_operations')

@@ -1,11 +1,7 @@
-#include "tailspring_gen_config.h"
+#include "tailspring.hpp"
+#include "tailspring_gen_config.hpp"
 
 #define NON_DEVICE_UNTYPED_ARRAY_SIZE 100
-
-typedef struct {
-    seL4_Word bytes_left;
-    seL4_CPtr cptr;
-} UntypedInfo;
 
 seL4_BootInfo* boot_info = NULL;
 seL4_Word num_empty_slots = 0;

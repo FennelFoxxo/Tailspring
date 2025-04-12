@@ -27,7 +27,7 @@ list(APPEND TAILSPRING_PYTHON_DEPENDS
 )
 list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
 
-set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_INCLUDE_DIR}/tailspring_gen_config.h")
+set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_INCLUDE_DIR}/tailspring_gen_config.hpp")
 set(TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH "${TAILSPRING_GENERATED_DIR}/startup_threads.o")
 
 # Generate C program to print out sel4 object sizes
@@ -52,8 +52,8 @@ add_custom_command(
 add_custom_target(TAILSPRING_GEN_HEADER_TARGET DEPENDS ${TAILSPRING_GEN_HEADER_PATH})
 
 # Compile Tailspring thread
-add_executable(             tailspring ${TAILSPRING_SOURCE_DIR}/tailspring.cpp)
-target_include_directories( tailspring PRIVATE ${TAILSPRING_INCLUDE_DIR})
+add_executable(             tailspring "${TAILSPRING_SOURCE_DIR}/tailspring.cpp")
+target_include_directories( tailspring PRIVATE "${TAILSPRING_INCLUDE_DIR}" "${TAILSPRING_SOURCE_DIR}")
 target_link_libraries(      tailspring sel4muslcsys "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}")
 target_link_libraries(tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
 add_dependencies(           tailspring TAILSPRING_GEN_HEADER_TARGET)
