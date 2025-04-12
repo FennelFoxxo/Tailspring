@@ -77,13 +77,12 @@ def genTCBSetupOpList(cap_locations, load_segments_dict):
 
         cspace = cap_locations[cspace_name]
         vspace = cap_locations[vspace_name]
+        tcb = cap_locations[tcb_name]
 
         thread_name = env.config.vspaces[vspace_name]
         entry_addr = env.startup_threads[thread_name].getEntryAddress()
 
-
-
-        # We also need to find an acceptable location for the ipc buffer and the stack.
+        # We need to find an acceptable location for the ipc buffer and the stack.
         # Starting at the highest segment address, let's skip a frame and put the IPC buffer there,
         # and skip another frame and put the stack there. That should prevent buffer- and stack- overruns
         load_segments = load_segments_dict[vspace_name]
@@ -118,11 +117,12 @@ def genTCBSetupOpList(cap_locations, load_segments_dict):
             op_list.append(CapCreateOperation(sel4_name_mapping['frame'], stack_frame_cap, 12))
             op_list.append(MapFrameOperation(stack_frame_cap, vspace, addr))
 
+        # Setup TCB operation
         op_list.append(TCBSetupOperation(
-            cap_locations[tcb_name], cspace, vspace, ipc_buffer, ipc_buffer_addr, entry_addr, stack_addr + stack_size))
+            tcb, cspace, vspace, ipc_buffer, ipc_buffer_addr, entry_addr, stack_addr + stack_size))
 
-
-
+        # Start TCB operation
+        op_list.append(TCBStartOperation(tcb))
 
     return op_list
 

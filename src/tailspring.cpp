@@ -80,6 +80,10 @@ void printOp(const CapOperation* c) {
             printf("Map frame (frame=%u) (vspace=%u) (vaddr=%lx)\n",
                 c->map_frame_op.frame, c->map_frame_op.vspace, c->map_frame_op.vaddr);
             break;
+        case TCB_START_OP:
+            printf("TCB start (tcb=%u)\n",
+                c->tcb_start_op.tcb);
+            break;
     }
 }
 
@@ -210,6 +214,11 @@ bool doMapFrameOp(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
+bool doTCBStartOp(CapOperation* cap_op) {
+    seL4_Error error = seL4_TCB_Resume(first_empty_slot + cap_op->tcb_start_op.tcb);
+    return (error == seL4_NoError);
+}
+
 bool dispatchOperation(CapOperation* cap_op) {
     switch (cap_op->op_type) {
         case CREATE_OP:
@@ -228,6 +237,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doTCBSetupOp(cap_op);
         case MAP_FRAME_OP:
             return doMapFrameOp(cap_op);
+        case TCB_START_OP:
+            return doTCBStartOp(cap_op);
         default:
             halt();
     }

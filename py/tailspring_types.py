@@ -122,6 +122,13 @@ class MapFrameOperation(Operation):
             frame = self.frame,
             vspace = self.vspace)
 
+class TCBStartOperation(Operation):
+    def __init__(self, tcb):
+        self.tcb = tcb
+    def __str__(self):
+        return self.toString('tcb_start_op',
+            tcb = self.tcb)
+
 class OperationList:
     def __init__(self):
         self.create_op_list = []
@@ -131,6 +138,7 @@ class OperationList:
         self.segment_load_op_list = []
         self.tcb_setup_op_list = []
         self.map_frame_op_list = []
+        self.tcb_start_op_list = []
 
     def appendSingle(self, op):
         if type(op) in (CapCreateOperation, CNodeCreateOperation):
@@ -147,6 +155,8 @@ class OperationList:
             self.tcb_setup_op_list.append(op)
         elif type(op) == MapFrameOperation:
             self.map_frame_op_list.append(op)
+        elif type(op) == TCBStartOperation:
+            self.tcb_start_op_list.append(op)
 
     def append(self, ops):
         if type(ops) == list:
@@ -166,7 +176,8 @@ class OperationList:
                 + self.map_op_list
                 + self.segment_load_op_list
                 + self.tcb_setup_op_list
-                + self.map_frame_op_list)
+                + self.map_frame_op_list
+                + self.tcb_start_op_list)
 
     def emit(self, var_name):
         emitLine(f'CapOperation {var_name}[] = {{')
