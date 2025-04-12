@@ -11,6 +11,16 @@ if(NOT DEFINED TAILSPRING_THREAD_DICT)
     message(FATAL_ERROR "TAILSPRING_THREAD_DICT is not set")
 endif(NOT DEFINED TAILSPRING_THREAD_DICT)
 
+foreach(keyvalue ${TAILSPRING_THREAD_DICT})
+    string(REPLACE "=" ";" keyvalue_list ${keyvalue})
+    list(GET keyvalue_list 1 value)
+    list(
+        APPEND
+            TAILSPRING_THREAD_DEPENDS
+            ${value}
+    )
+endforeach()
+
 set(TAILSPRING_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}")
 set(TAILSPRING_SOURCE_DIR "${TAILSPRING_PROJECT_DIR}/src")
 set(TAILSPRING_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
@@ -45,7 +55,7 @@ add_custom_command(
         --startup-threads-mapping ${TAILSPRING_THREAD_DICT}
         --output-header "${TAILSPRING_GEN_HEADER_PATH}"
         --output-startup-threads-obj "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}"
-    DEPENDS "${TAILSPRING_CONFIG_PATH}" "${TAILSPRING_GET_SEL4_INFO_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info
+    DEPENDS "${TAILSPRING_CONFIG_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info ${TAILSPRING_THREAD_DEPENDS}
     COMMENT "Generating Tailspring header file"
     COMMAND_EXPAND_LISTS
 )
