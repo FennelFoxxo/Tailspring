@@ -42,8 +42,6 @@ def genCapCreateOpList(cap_locations):
         cap_type = sel4_name_mapping[cap_type]
         cap_size = getObjectSize(cap_type)
         op_list.append(CapCreateOperation(cap_type, cap_dest, cap_size))
-    # Sort so that biggest operations are at the beginning
-    op_list.sort(key = lambda op: op.bytes_required, reverse=True)
     return op_list
 
 def getRightsString(rights_list):

@@ -97,7 +97,7 @@ class OperationList:
 
     def getOpList(self):
         # Sort so that biggest operations are at the beginning
-        self.create_op_list.sort(key = lambda op: op.size_bits, reverse=True)
+        self.create_op_list.sort(key = lambda op: op.bytes_required, reverse=True)
         return self.create_op_list + self.mint_op_list + self.copy_op_list
 
     def emit(self, var_name):
