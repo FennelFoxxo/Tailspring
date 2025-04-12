@@ -21,9 +21,9 @@ set(TAILSPRING_CONFIG_PATH "${RUNTIME_CONFIGS_DIR}/${TAILSPRING_CONFIG_FILENAME}
 file(MAKE_DIRECTORY "${TAILSPRING_INCLUDE_DIR}")
 
 set(TAILSPRING_PYTHON_DIR "${TAILSPRING_PROJECT_DIR}/py")
-set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/tailspring_gen.py")
+set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/tailspring.py")
 list(APPEND TAILSPRING_PYTHON_DEPENDS
-    tailspring_gen.py tailspring_types.py tailspring_globals.py tailspring_core.py tailspring_startup_threads.py
+    tailspring.py tailspring_types.py tailspring_globals.py tailspring_core.py tailspring_startup_threads.py
 )
 list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
 
