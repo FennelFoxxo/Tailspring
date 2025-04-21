@@ -20,10 +20,10 @@ def setSharedVSpaceThreadValues(vspace: ts_types.VSpace, ctx: Context):
     threads_sharing_vspace = filter(lambda thread: thread.vspace == vspace, ctx.threads.values())
 
     # Get the last address used in the vspace for mapping segments (everything after this should be free)
-    last_segment_vaddr = max([segment.load_vaddr + segment.load_length for segment in vspace.segments])
-    assert (last_segment_vaddr % ctx.page_size == 0)
+    last_chunk_vaddr = max([chunk.dest_vaddr_aligned + chunk.total_length_with_padding for chunk in vspace.binary_chunks])
+    assert (last_chunk_vaddr % ctx.page_size == 0)
 
-    addr_ptr = last_segment_vaddr
+    addr_ptr = last_chunk_vaddr
 
     # We place a thread's stack above the segment, then the thread's IPC buffer, then the next thread's stack, and so on...
     # We leave unmapped pages in between so that a fault with occur if a stack overrun occurs

@@ -84,7 +84,7 @@ def create_vspace_wrappers(ctx: Context):
             raise ValueError(f"Found duplicate cap with name '{vspace_name}' in vspace section")
 
         binary_path = ctx.startup_threads_paths[binary_name]
-        vspace = ts_types.VSpace(name=vspace_name, type=ts_enums.CapType.vspace, binary_name=binary_name, nonce=index, binary_path=binary_path)
+        vspace = ts_types.VSpace(name=vspace_name, type=ts_enums.CapType.vspace, binary_name=binary_name, nonce=index, binary_path=binary_path, alignment=ctx.page_size)
         ctx.cap_addresses.append(vspace)
         ctx.vspaces[vspace_name] = vspace
 

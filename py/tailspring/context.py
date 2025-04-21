@@ -27,6 +27,7 @@ class Context:
     arch: ts_enums.Arch = None
     page_size_bits: int = None
     page_size: int = None
+    temp_dir: Path = None
 
     # Simple wrappers to represent the structure of the specified config in an easier-to-use format
     cap_addresses: ts_types.CapAddresses = field(default_factory=ts_types.CapAddresses)

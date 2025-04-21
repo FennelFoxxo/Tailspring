@@ -9,7 +9,7 @@ def gen_cap_ops_list(ctx: Context):
     gen_mint_ops(ctx)
     gen_copy_ops(ctx)
     gen_paging_ops(ctx)
-    gen_segment_load_ops(ctx)
+    gen_binary_chunk_load_ops(ctx)
     gen_tcb_setup_ops(ctx)
     gen_tcb_start_ops(ctx)
 
@@ -60,12 +60,12 @@ def gen_paging_ops(ctx: Context):
         paging_structure.gen_ops(vspace, ctx)
 
 
-def gen_segment_load_ops(ctx: Context):
+def gen_binary_chunk_load_ops(ctx: Context):
     for vspace_name, vspace in ctx.vspaces.items():
-        for segment in vspace.segments:
-            segment_load_op = op_types.SegmentLoadOperation(src_vaddr_sym=segment.start_symbol, dest_vaddr=segment.load_vaddr,
-                                                            length=segment.load_length, dest_vspace=vspace)
-            ctx.ops_list.append(segment_load_op)
+        for chunk in vspace.binary_chunks:
+            chunk_load_op = op_types.BinaryChunkLoadOperation(src_vaddr_sym=chunk.start_symbol, dest_vaddr=chunk.dest_vaddr_aligned,
+                                                              length=chunk.total_length_with_padding, dest_vspace=vspace)
+            ctx.ops_list.append(chunk_load_op)
 
 
 def gen_tcb_setup_ops(ctx: Context):
@@ -83,7 +83,7 @@ def gen_tcb_start_ops(ctx: Context):
 
 
 def sort_ops_list(ctx: Context):
-    op_order = [op_types.MintOperation, op_types.CopyOperation, op_types.MapOperation, op_types.SegmentLoadOperation,
+    op_order = [op_types.MintOperation, op_types.CopyOperation, op_types.MapOperation, op_types.BinaryChunkLoadOperation,
                 op_types.MapFrameOperation, op_types.TCBSetupOperation, op_types.TCBStartOperation]
 
     def sort_func(e):

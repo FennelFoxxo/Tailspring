@@ -68,9 +68,9 @@ void printOp(const CapOperation* c) {
             printf("Map (service=%u) (vspace=%u) (vaddr=%lx)\n",
                 c->map_op.service, c->map_op.vspace, c->map_op.vaddr);
             break;
-        case SEGMENT_LOAD_OP:
-            printf("Segment load (vspace=%u) (vaddr=%lx) (length=%lx)\n",
-                c->segment_load_op.dest_vspace, c->segment_load_op.dest_vaddr, c->segment_load_op.length);
+        case BINARY_CHUNK_LOAD_OP:
+            printf("Binary chunk load (vspace=%u) (vaddr=%lx) (length=%lx)\n",
+                c->binary_chunk_load_op.dest_vspace, c->binary_chunk_load_op.dest_vaddr, c->binary_chunk_load_op.length);
             break;
         case TCB_SETUP_OP:
             printf("TCB Setup (tcb=%u) (cspace=%u) (vspace=%u) (entry addr=%lx)\n",
@@ -163,15 +163,15 @@ bool doMapOp(CapOperation* cap_op) {
     return true;
 }
 
-bool doSegmentLoadOp(CapOperation* cap_op) {
+bool doBinaryChunkLoadOp(CapOperation* cap_op) {
     seL4_Word frames_start_address = SYM_VAL(_startup_threads_data_start);
-    seL4_Word segment_src_address = cap_op->segment_load_op.src_vaddr;
-    seL4_CPtr segment_start_frame = boot_info->userImageFrames.start
-                                    + ((segment_src_address - frames_start_address) >> seL4_PageBits);
+    seL4_Word chunk_src_address = cap_op->binary_chunk_load_op.src_vaddr;
+    seL4_CPtr chunk_start_frame = boot_info->userImageFrames.start
+                                    + ((chunk_src_address - frames_start_address) >> seL4_PageBits);
     seL4_Error error;
-    for (seL4_Word i = 0; i < (cap_op->segment_load_op.length >> seL4_PageBits); i++) {
-        seL4_CPtr current_frame = segment_start_frame + i;
-        seL4_Word frame_dest_vaddr = cap_op->segment_load_op.dest_vaddr + (i << seL4_PageBits);
+    for (seL4_Word i = 0; i < (cap_op->binary_chunk_load_op.length >> seL4_PageBits); i++) {
+        seL4_CPtr current_frame = chunk_start_frame + i;
+        seL4_Word frame_dest_vaddr = cap_op->binary_chunk_load_op.dest_vaddr + (i << seL4_PageBits);
 
         // Unmap page from this vspace
         error = wrapperPageUnmap(current_frame);
@@ -179,7 +179,7 @@ bool doSegmentLoadOp(CapOperation* cap_op) {
 
         // Map page into destination vspace
         error = wrapperPageMap( current_frame,
-                                first_empty_slot + cap_op->segment_load_op.dest_vspace,
+                                first_empty_slot + cap_op->binary_chunk_load_op.dest_vspace,
                                 frame_dest_vaddr);
         if (error != seL4_NoError) return false;
     }
@@ -235,8 +235,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doMutateOp(cap_op);
         case MAP_OP:
             return doMapOp(cap_op);
-        case SEGMENT_LOAD_OP:
-            return doSegmentLoadOp(cap_op);
+        case BINARY_CHUNK_LOAD_OP:
+            return doBinaryChunkLoadOp(cap_op);
         case TCB_SETUP_OP:
             return doTCBSetupOp(cap_op);
         case MAP_FRAME_OP:

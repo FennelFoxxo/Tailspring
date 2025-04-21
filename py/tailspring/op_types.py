@@ -106,16 +106,16 @@ class MapOperation(Operation):
                                             )]
 
 
-class SegmentLoadOperation(Operation):
+class BinaryChunkLoadOperation(Operation):
     def __init__(self, src_vaddr_sym: str, dest_vaddr: int, length: int, dest_vspace: ts_types.VSpace):
-        # src_vaddr is a string because it contains the linker symbol of the segment's start address
+        # src_vaddr is a string because it contains the linker symbol of the chunk's start address
         self.src_vaddr_sym = src_vaddr_sym
         self.dest_vaddr = dest_vaddr
         self.length = length
         self.dest_vspace = dest_vspace
 
     def format_as_C_entry(self) -> List[str]:
-        return [self.format_args_as_C_entry('segment_load_op',
+        return [self.format_args_as_C_entry('binary_chunk_load_op',
                                             src_vaddr=f'SYM_VAL({self.src_vaddr_sym})',
                                             dest_vaddr=self.dest_vaddr,
                                             length=self.length,

@@ -22,7 +22,7 @@ extern "C" {
 struct CapOperation;
 typedef seL4_Error (*MapFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);
 
-enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP, TCB_SETUP_OP, MAP_FRAME_OP, TCB_START_OP};
+enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, BINARY_CHUNK_LOAD_OP, TCB_SETUP_OP, MAP_FRAME_OP, TCB_START_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -58,7 +58,7 @@ struct MapOperation {
     uint32_t vspace;
 };
 
-struct SegmentLoadOperation {
+struct BinaryChunkLoadOperation {
     seL4_Word src_vaddr;
     seL4_Word dest_vaddr;
     seL4_Word length;
@@ -93,7 +93,7 @@ struct CapOperation {
         CapCopyOperation copy_op;
         CapMutateOperation mutate_op;
         MapOperation map_op;
-        SegmentLoadOperation segment_load_op;
+        BinaryChunkLoadOperation binary_chunk_load_op;
         TCBSetupOperation tcb_setup_op;
         MapFrameOperation map_frame_op;
         TCBStartOperation tcb_start_op;

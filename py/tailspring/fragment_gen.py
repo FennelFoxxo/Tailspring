@@ -34,8 +34,8 @@ def write_mapping_funcs_enable_fragment(ctx: Context):
 def write_extern_linker_symbols_fragment(ctx: Context):
     f = ctx.extern_linker_symbols_fragment
     for vspace_name, vspace in ctx.vspaces.items():
-        for segment in vspace.segments:
-            f.write(f'extern void* {segment.start_symbol};\n')
+        for chunk in vspace.binary_chunks:
+            f.write(f'extern void* {chunk.start_symbol};\n')
 
 
 def flush_fragments(ctx: Context):

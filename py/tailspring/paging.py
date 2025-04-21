@@ -170,10 +170,10 @@ def create_paging_structures(ctx: 'context.Context'):
     arch_info = ctx.paging_arch_info = PagingArchInfo(ctx.arch)
     for vspace_name, vspace in ctx.vspaces.items():
         paging_structure = PagingStructure(arch_info.get_topmost_structure(), arch_info, 0)
-        for segment in vspace.segments:
-            # Need to create page table structures to map every segment
-            segment_lower_vaddr = segment.segment_raw['p_vaddr']
-            segment_upper_vaddr = segment_lower_vaddr + segment.segment_raw['p_memsz']
-            segment_range = Range(segment_lower_vaddr, segment_upper_vaddr)
-            paging_structure.create_children_to_cover_range(segment_range)
+        for chunk in vspace.binary_chunks:
+            # Need to create page table structures to map every chunk
+            chunk_lower_vaddr = chunk.dest_vaddr_aligned
+            chunk_upper_vaddr = chunk_lower_vaddr + chunk.total_length_with_padding
+            chunk_range = Range(chunk_lower_vaddr, chunk_upper_vaddr)
+            paging_structure.create_children_to_cover_range(chunk_range)
         ctx.paging_structures[vspace_name] = paging_structure

@@ -97,6 +97,7 @@ def parse_args(ctx: Context):
         raise RuntimeError(f"Could not find arch '{arch_from_sel4_info}' returned from seL4 info getter")
     ctx.page_size_bits = ctx.sel4_info['literals']['seL4_PageBits']
     ctx.page_size = 1 << ctx.page_size_bits
+    ctx.temp_dir = ctx.output_startup_threads_obj_path.parent
 
 
 def parse_config(config_path: Path) -> dict:

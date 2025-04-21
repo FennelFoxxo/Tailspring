@@ -23,14 +23,14 @@ def main():
     # Convert the data in the configuration file into objects that are easier to manipulate
     wrapper_creator.create_object_wrappers(ctx)
 
-    # Parse the elf files associated with each vspace, extract the load segments, and combine them together into a single linkable obj file
-    obj_file_gen.gen_startup_threads_obj_file(ctx)
-
     # Create the paging structures necessary to map in each vspace
     paging.create_paging_structures(ctx)
 
     # Set the values of per-thread attributes such as stack address and ipc buffer address - this does create some operations as well
     thread_setup.setPerThreadValues(ctx)
+
+    # Parse the elf files associated with each vspace, extract the load segments, and combine them together into a single linkable obj file
+    obj_file_gen.gen_startup_threads_obj_file(ctx)
 
     # Generate the list of operations that need to be performed to set up the system's state according to the config
     ops_gen.gen_cap_ops_list(ctx)
