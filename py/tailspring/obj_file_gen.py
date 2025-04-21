@@ -63,10 +63,10 @@ def gen_obj_file_for_segment(segment: ts_types.Segment, ctx: Context):
     # Then write .bin file containing raw dump of segment contents
     segment_bin_path = segment.segment_obj_path.with_suffix('.bin')
     with open(segment_bin_path, 'wb') as f:
-        f.write(b'0' * head_padding_len +
+        f.write(b'\0' * head_padding_len +
                 segment.segment_raw.data() +
-                b'0' * extra_memsz_len +
-                b'0' * tail_padding_len
+                b'\0' * extra_memsz_len +
+                b'\0' * tail_padding_len
                 )
 
     # And save the total length in the segment object
