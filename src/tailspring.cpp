@@ -70,7 +70,7 @@ void printOp(const CapOperation* c) {
             break;
         case SEGMENT_LOAD_OP:
             printf("Segment load (vspace=%u) (vaddr=%lx) (length=%lx)\n",
-                c->segment_load_op.vspace, c->segment_load_op.segment_dest_vaddr, c->segment_load_op.segment_length);
+                c->segment_load_op.dest_vspace, c->segment_load_op.dest_vaddr, c->segment_load_op.length);
             break;
         case TCB_SETUP_OP:
             printf("TCB Setup (tcb=%u) (cspace=%u) (vspace=%u) (entry addr=%lx)\n",
@@ -158,25 +158,29 @@ bool doMutateOp(CapOperation* cap_op) {
 }
 
 bool doMapOp(CapOperation* cap_op) {
-    mappingFuncType map_func = mapping_funcs[cap_op->map_op.mapping_func_index];
+    MapFuncType map_func = cap_op->map_op.map_func;
     return (map_func(cap_op, first_empty_slot) == seL4_NoError);
+    return true;
 }
 
 bool doSegmentLoadOp(CapOperation* cap_op) {
     seL4_Word frames_start_address = SYM_VAL(_startup_threads_data_start);
-    seL4_Word segment_start_address = cap_op->segment_load_op.segment_start_vaddr;
+    seL4_Word segment_src_address = cap_op->segment_load_op.src_vaddr;
     seL4_CPtr segment_start_frame = boot_info->userImageFrames.start
-                                    + (segment_start_address - frames_start_address) / (1 << seL4_PageBits);
+                                    + ((segment_src_address - frames_start_address) >> seL4_PageBits);
     seL4_Error error;
-    for (seL4_Word i = 0; i < cap_op->segment_load_op.segment_length / (1 << seL4_PageBits); i++) {
+    for (seL4_Word i = 0; i < (cap_op->segment_load_op.length >> seL4_PageBits); i++) {
+        seL4_CPtr current_frame = segment_start_frame + i;
+        seL4_Word frame_dest_vaddr = cap_op->segment_load_op.dest_vaddr + (i << seL4_PageBits);
+
         // Unmap page from this vspace
-        error = pageUnmapFunc(segment_start_frame + i);
+        error = wrapperPageUnmap(current_frame);
         if (error != seL4_NoError) return false;
 
         // Map page into destination vspace
-        error = pageMapFunc(    segment_start_frame + i,
-                                first_empty_slot + cap_op->segment_load_op.vspace,
-                                cap_op->segment_load_op.segment_dest_vaddr);
+        error = wrapperPageMap( current_frame,
+                                first_empty_slot + cap_op->segment_load_op.dest_vspace,
+                                frame_dest_vaddr);
         if (error != seL4_NoError) return false;
     }
     return true;
@@ -208,9 +212,9 @@ bool doTCBSetupOp(CapOperation* cap_op) {
 }
 
 bool doMapFrameOp(CapOperation* cap_op) {
-    seL4_Error error = pageMapFunc( first_empty_slot + cap_op->map_frame_op.frame,
-                        first_empty_slot + cap_op->map_frame_op.vspace,
-                        cap_op->map_frame_op.vaddr);
+    seL4_Error error = wrapperPageMap(  first_empty_slot + cap_op->map_frame_op.frame,
+                                        first_empty_slot + cap_op->map_frame_op.vspace,
+                                        cap_op->map_frame_op.vaddr);
     return (error == seL4_NoError);
 }
 
@@ -255,15 +259,9 @@ int main() {
 
     printf("Hello world!\n");
     printf("Slots needed: %lu\n", SLOTS_REQUIRED);
-    printf("Bytes needed: %lu\n", BYTES_REQUIRED);
 
     loadBootInfo();
 
-    seL4_Word start = SYM_VAL(_startup_threads_data_start);
-    seL4_Word seg0_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_0_bin_start);
-    seL4_Word seg1_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_1_bin_start);
-    seL4_Word seg2_start = SYM_VAL(_binary_startup_thread_thread_elf__0_segment_2_bin_start);
-    printf("%lx, %lx, %lx, %lx\n", start, seg0_start, seg1_start, seg2_start);
 
     if (SLOTS_REQUIRED > num_empty_slots) {
         printf("Number of slots needed (%lu) is greater than number of empty slots (%lu)!\n", SLOTS_REQUIRED, num_empty_slots);

@@ -13,6 +13,14 @@ extern "C" {
 #define CAP_ALLOW_GRANT (1<<2)
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
+#define NUM_OPERATIONS (sizeof(cap_operations) / sizeof(cap_operations[0]))
+
+// Each platform has its own platform-specific functions to map in pages and page structures.
+// The specific mapping functions are chosen in the python script and wrappers are generated for the
+// mapping functions, then placed in an array of function pointers, that way the correct function can
+// be chosen simply by index rather than name. This is the signature of the mapping function wrapper.
+struct CapOperation;
+typedef seL4_Error (*MapFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);
 
 enum CapOperationType {CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, SEGMENT_LOAD_OP, TCB_SETUP_OP, MAP_FRAME_OP, TCB_START_OP};
 
@@ -44,17 +52,17 @@ struct CapMutateOperation {
 };
 
 struct MapOperation {
+    MapFuncType map_func;
     seL4_Word vaddr;
     uint32_t service;
     uint32_t vspace;
-    uint16_t mapping_func_index;
 };
 
 struct SegmentLoadOperation {
-    seL4_Word segment_start_vaddr;
-    seL4_Word segment_dest_vaddr;
-    seL4_Word segment_length;
-    uint32_t vspace;
+    seL4_Word src_vaddr;
+    seL4_Word dest_vaddr;
+    seL4_Word length;
+    uint32_t dest_vspace;
 };
 
 struct TCBSetupOperation {
@@ -102,8 +110,49 @@ struct UntypedInfo {
 // so this address should point to the first frame in userImageFrames
 extern void* _startup_threads_data_start;
 
-// Each platform has its own platform-specific functions to map in pages and page structures.
-// The specific mapping functions are chosen in the python script and wrappers are generated for the
-// mapping functions, then placed in an array of function pointers, that way the correct function can
-// be chosen simply by index rather than name. This is the signature of the mapping function wrapper.
-typedef seL4_Error (*mappingFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);
+#define ENABLE_X86_ASIDPOOL_ASSIGN \
+seL4_Error wrapper_X86_ASIDPool_Assign(CapOperation* cap_op, seL4_Word first_empty_slot) { \
+    return seL4_X86_ASIDPool_Assign( \
+        seL4_CapInitThreadASIDPool, \
+        first_empty_slot + cap_op->map_op.service); \
+}
+
+#define ENABLE_X86_PDPT_MAP \
+seL4_Error wrapper_X86_PDPT_Map(CapOperation* cap_op, seL4_Word first_empty_slot) { \
+    return seL4_X86_PDPT_Map( \
+        first_empty_slot + cap_op->map_op.service, \
+        first_empty_slot + cap_op->map_op.vspace, \
+        cap_op->map_op.vaddr, \
+        seL4_X86_Default_VMAttributes); \
+}
+
+#define ENABLE_X86_PAGEDIRECTORY_MAP \
+seL4_Error wrapper_X86_PageDirectory_Map(CapOperation* cap_op, seL4_Word first_empty_slot) { \
+    return seL4_X86_PageDirectory_Map( \
+        first_empty_slot + cap_op->map_op.service, \
+        first_empty_slot + cap_op->map_op.vspace, \
+        cap_op->map_op.vaddr, \
+        seL4_X86_Default_VMAttributes); \
+}
+
+#define ENABLE_X86_PAGETABLE_MAP \
+seL4_Error wrapper_X86_PageTable_Map(CapOperation* cap_op, seL4_Word first_empty_slot) { \
+    return seL4_X86_PageTable_Map( \
+        first_empty_slot + cap_op->map_op.service, \
+        first_empty_slot + cap_op->map_op.vspace, \
+        cap_op->map_op.vaddr, \
+        seL4_X86_Default_VMAttributes); \
+}
+
+#define ENABLE_X86_PAGE_MAP \
+seL4_Error wrapperPageMap(seL4_CPtr frame, seL4_CPtr vspace_abs, seL4_Word vaddr) { \
+    return seL4_X86_Page_Map( \
+        frame, \
+        vspace_abs, \
+        vaddr, \
+        seL4_ReadWrite, \
+        seL4_X86_Default_VMAttributes); \
+} \
+seL4_Error wrapperPageUnmap(seL4_CPtr frame) { \
+    return seL4_X86_Page_Unmap(frame); \
+}

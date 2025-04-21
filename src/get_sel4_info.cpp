@@ -56,15 +56,15 @@ void endDict() {
 #define outputExpr(EXPR) outputNum(#EXPR, EXPR)
 #define outputSymbolExists(symbol) outputNum(#symbol, symbolExists(symbol))
 
-void outputPagingInfo() {
+void outputArch() {
 
 #ifdef seL4_PML4Bits
-    // Mapping mode is x86-64
-    outputString("mode", "x86-64");
+    // Arch is x86-64
+    outputString("arch", "x86_64");
     return;
 #endif
 
-outputString("mode", "unknown");
+outputString("arch", "unknown");
 
 }
 
@@ -77,6 +77,7 @@ int main() {
 
         outputExpr(seL4_WordBits);
         outputExpr(seL4_SlotBits);
+        outputExpr(seL4_PageBits);
 
         endDict();
     }
@@ -85,9 +86,9 @@ int main() {
         startDict("object_sizes");
 
         outputNum("seL4_TCBObject", seL4_TCBBits);
-        outputNum("seL4_X86_4K", seL4_PageBits);
         outputNum("seL4_EndpointObject", seL4_EndpointBits);
 
+        outputNum("seL4_X86_4K", seL4_PageBits);
         outputNum("seL4_X64_PML4Object", seL4_PML4Bits);
         outputNum("seL4_X86_PDPTObject", seL4_PDPTBits);
         outputNum("seL4_X86_PageDirectoryObject", seL4_PageDirBits);
@@ -106,11 +107,7 @@ int main() {
         endDict();
     }
 
-    {
-        startDict("paging");
-        outputPagingInfo();
-        endDict();
-    }
+    outputArch();
 
     printf("}\n");
 
