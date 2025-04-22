@@ -29,7 +29,16 @@ def gen_startup_threads_obj_file(ctx: Context):
 
 
 def gen_obj_files_for_vspace(vspace: ts_types.VSpace, ctx: Context):
-    for chunk in vspace.binary_chunks:
+    chunks_sorted = sorted(vspace.binary_chunks, key=lambda chunk: chunk.dest_vaddr_aligned)
+    # Make sure chunks don't overlap
+    for i in range(len(chunks_sorted)-1):
+        fst_chunk = chunks_sorted[i]
+        snd_chunk = chunks_sorted[i+1]
+        first_chunk_end = fst_chunk.dest_vaddr_aligned + fst_chunk.total_length_with_padding
+        if first_chunk_end > chunks_sorted[i+1].dest_vaddr_aligned:
+            raise RuntimeError(f"Chunk '{fst_chunk.name}' @ {hex(fst_chunk.dest_vaddr)} overlaps with chunk '{snd_chunk.name}' @ {hex(snd_chunk.dest_vaddr)} in VSpace '{vspace.name}'")
+
+    for chunk in chunks_sorted:
         gen_obj_file_for_chunk(chunk, ctx)
 
 
