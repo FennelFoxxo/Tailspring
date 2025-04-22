@@ -35,16 +35,12 @@ def setSharedVSpaceThreadValues(vspace: ts_types.VSpace, ctx: Context):
         # Make sure stack size is multiple of page size
         stack_size_aligned = stack_size + stack_padding
 
-        num_stack_frames = stack_size_aligned // ctx.page_size
-        for i in range(num_stack_frames):
-            # Each stack frame needs to be allocated
-            stack_frame_cap_name = f'{thread.tcb.name}_stack_frame_{addr_ptr}__'
-            createAndMapNewFrame(stack_frame_cap_name, vspace, addr_ptr, ctx)
+        # Create stack as chunk
+        stack_chunk = ts_types.BinaryChunk(name=f'{thread.tcb.name}_stack_frame_{addr_ptr}__', alignment=ctx.page_size, data=b'', dest_vaddr=addr_ptr, min_length=stack_size_aligned)
+        vspace.binary_chunks.append(stack_chunk)
 
-            # Increment address pointer
-            addr_ptr += ctx.page_size
-
-        # addr_ptr is now at the top of the stack
+        # move addr_ptr to the top of the stack
+        addr_ptr += stack_size_aligned
         thread.stack_top_addr = addr_ptr
 
         # Leave a frame in between stack and IPC buffer
