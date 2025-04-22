@@ -1,5 +1,11 @@
 #include <stdio.h>
 #include <type_traits>
+#include <cstddef>
+
+#define _Static_assert static_assert // Needed for sel4runtime to compile
+extern "C" {
+#include <sel4runtime.h>
+}
 
 namespace Wrapper {
     struct NotFound{};
@@ -68,6 +74,16 @@ outputString("arch", "unknown");
 
 }
 
+void outputEndianness() {
+    long long unsigned n = 1;
+    // If first byte is 1 then we're on little endian
+    if (*(char*)&n == 1) {
+        outputString("endianness", "little");
+    } else {
+        outputString("endianness", "big");
+    }
+}
+
 
 int main() {
     printf("{");
@@ -78,6 +94,11 @@ int main() {
         outputExpr(seL4_WordBits);
         outputExpr(seL4_SlotBits);
         outputExpr(seL4_PageBits);
+        outputExpr(sizeof(int));
+        outputExpr(offsetof(auxv_t, a_un));
+        outputExpr(AT_SEL4_IPC_BUFFER_PTR);
+        outputExpr(AT_NULL);
+        outputExpr(AT_SYSINFO);
 
         endDict();
     }
@@ -108,6 +129,7 @@ int main() {
     }
 
     outputArch();
+    outputEndianness();
 
     printf("}\n");
 

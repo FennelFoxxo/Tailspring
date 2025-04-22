@@ -53,7 +53,7 @@ set(TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH "${TAILSPRING_GENERATED_DIR}/startup
 
 # Generate C program to print out sel4 object sizes
 add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.cpp")
-target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf)
+target_link_libraries(  tailspring_get_sel4_info sel4 sel4_autoconf sel4runtime)
 
 # Use python script to generate header file
 add_custom_command(

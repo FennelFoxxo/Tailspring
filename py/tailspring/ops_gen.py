@@ -72,7 +72,7 @@ def gen_tcb_setup_ops(ctx: Context):
     for thread in ctx.threads.values():
         tcb_setup_op = op_types.TCBSetupOperation(tcb=thread.tcb, cspace=thread.cspace, vspace=thread.vspace, ipc_buffer=thread.ipc_buffer,
                                                   entry_addr=thread.vspace.elf.header.e_entry, ipc_buffer_addr=thread.ipc_buffer_addr,
-                                                  stack_top_addr=thread.stack_top_addr)
+                                                  stack_pointer_addr=thread.stack_pointer_addr)
         ctx.ops_list.append(tcb_setup_op)
 
 

@@ -124,19 +124,19 @@ class BinaryChunkLoadOperation(Operation):
 
 
 class TCBSetupOperation(Operation):
-    def __init__(self, tcb: ts_types.Cap, cspace: ts_types.Cap, vspace: ts_types.VSpace, ipc_buffer: ts_types.Cap, ipc_buffer_addr: int, entry_addr: int, stack_top_addr: int):
+    def __init__(self, tcb: ts_types.Cap, cspace: ts_types.Cap, vspace: ts_types.VSpace, ipc_buffer: ts_types.Cap, ipc_buffer_addr: int, entry_addr: int, stack_pointer_addr: int):
         self.tcb = tcb
         self.cspace = cspace
         self.vspace = vspace
         self.ipc_buffer = ipc_buffer
         self.ipc_buffer_addr = ipc_buffer_addr
         self.entry_addr = entry_addr
-        self.stack_top_addr = stack_top_addr
+        self.stack_pointer_addr = stack_pointer_addr
 
     def format_as_C_entry(self) -> List[str]:
         return [self.format_args_as_C_entry('tcb_setup_op',
                                             entry_addr=self.entry_addr,
-                                            stack_top_addr=self.stack_top_addr,
+                                            stack_pointer_addr=self.stack_pointer_addr,
                                             ipc_buffer_addr=self.ipc_buffer_addr,
                                             cspace=self.cspace.address,
                                             vspace=self.vspace.address,

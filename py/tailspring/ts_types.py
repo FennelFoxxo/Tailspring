@@ -1,8 +1,9 @@
 import tailspring.ts_enums as ts_enums
 from dataclasses import dataclass, field
-from typing import TextIO, BinaryIO, List, Dict
+from typing import TextIO, BinaryIO, List, Dict, Optional
 from pathlib import Path
 import elftools.elf.elffile as elffile
+import elftools.elf.sections as elfsections
 
 
 @dataclass
@@ -143,16 +144,24 @@ class VSpace(Cap):
     f: BinaryIO = field(init=False)
     elf: elffile.ELFFile = field(init=False)
     binary_chunks: List[BinaryChunk] = field(init=False)
+    symtab: elffile.SymbolTableSection = field(init=False)
 
     def __post_init__(self):
         self.binary_name_unique = f"{self.binary_name}_num{self.nonce}"
         self.f = open(self.binary_path, 'rb')
         self.elf = elffile.ELFFile(self.f)
+        self.symtab = self.elf.get_section_by_name('.symtab')
         self.binary_chunks = []
         # We only care about load segments
         for index, segment in enumerate(self.elf.iter_segments('PT_LOAD')):
             chunk = BinaryChunk(name=f"thread_{self.binary_name_unique}_segment{index}", data=segment.data(), dest_vaddr=segment['p_vaddr'], min_length=segment['p_memsz'], alignment=self.alignment)
             self.binary_chunks.append(chunk)
+
+    def get_symbol(self, symbol_name: str) -> Optional[elfsections.Symbol]:
+        if self.symtab is None:
+            raise RuntimeError(f"No symbol table for '{self.binary_name}' found")
+        matching_symbols = self.symtab.get_symbol_by_name(symbol_name)
+        return matching_symbols[0] if len(matching_symbols) > 0 else None
 
 
 @dataclass
@@ -163,7 +172,8 @@ class Thread:
     ipc_buffer: Cap
     stack_size: int
     ipc_buffer_addr: int = field(init=False)
-    stack_top_addr: int = field(init=False)
+    stack_top_addr: int = field(init=False)  # The address of the top of the stack chunk
+    stack_pointer_addr: int = field(init=False)  # The address that should be loaded into the stack pointer on thread start
 
 
 # Represents a fragment of text that can be flushed to the output file - essentially a buffer

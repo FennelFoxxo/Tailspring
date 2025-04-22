@@ -67,7 +67,7 @@ struct BinaryChunkLoadOperation {
 
 struct TCBSetupOperation {
     seL4_Word entry_addr;
-    seL4_Word stack_top_addr;
+    seL4_Word stack_pointer_addr;
     seL4_Word ipc_buffer_addr;
     uint32_t cspace;
     uint32_t vspace;
