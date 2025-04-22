@@ -122,5 +122,15 @@ def create_thread_wrappers(ctx: Context):
         if type(stack_size) != int or stack_size < 0:
             raise ValueError(f"Expected stack size '{stack_size}' in threads section to be a positive int")
 
-        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size)
+        # A custom entry functon may be passed. If so, we need to look up the symbol address. Otherwise, use the entry in the elf file
+        if 'entry' in thread_info:
+            entry_symbol_name = thread_info['entry']
+            entry_symbol = vspace.get_symbol(entry_symbol_name)
+            if entry_symbol is None:
+                raise RuntimeError(f"Entry symbol '{entry_symbol_name}' for thread '{tcb_name}' not found in vspace '{vspace_name}'")
+            entry_addr = entry_symbol['st_value']
+        else:
+            entry_addr = vspace.elf.header.e_entry
+
+        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size, entry_addr=entry_addr)
         ctx.threads[tcb_name] = thread

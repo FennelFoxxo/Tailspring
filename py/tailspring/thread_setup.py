@@ -52,6 +52,8 @@ class Stack:
         # Represents the bytes of the stack as read from the lowest address to the highest
         data = bytes()
 
+        word_size = self.ctx.sel4_info['literals']['seL4_WordBits'] // 8
+
         # Write num args
         data += self.wordToBytes(len(self.args))
 
@@ -84,13 +86,20 @@ class Stack:
         for arg in self.args:
             arg_data += arg.data
 
-        # Then we add some padding between the required stack data and the custom arg data so that the start address of the stack is aligned
+        # The stack is expected to be aligned to the nearest 16 bytes
         stack_alignment = 16
         padding_needed = -(len(data) + len(arg_data)) % stack_alignment
         data += bytes(padding_needed)
 
         # Finally combine the required stack data and the custom arg data
         data += arg_data
+
+        # Make sure the stack pointer is just under the stack data
+        self.thread.stack_pointer_addr = self.thread.stack_top_addr - len(data)
+
+        # Pass argc as first argument to thread and argv as second. argv is the second word above the stack pointer, after argc
+        self.thread.arg0 = len(self.args)
+        self.thread.arg1 = self.thread.stack_pointer_addr + word_size
 
         return data
 
@@ -183,6 +192,3 @@ def initStackForThread(thread: ts_types.Thread, ctx: Context):
 
     stack_chunk = ts_types.BinaryChunk(name=f'{thread.tcb.name}_stack_frame__', alignment=ctx.page_size, data=stack_data_padded, dest_vaddr=thread.stack_top_addr-thread.stack_size, min_length=thread.stack_size)
     thread.vspace.binary_chunks.append(stack_chunk)
-
-    # Make sure the stack pointer is just under the stack data
-    thread.stack_pointer_addr = thread.stack_top_addr - len(stack_data)

@@ -5,6 +5,7 @@ extern "C" {
 #include <stdint.h>
 #include <sel4platsupport/bootinfo.h>
 #include <stdio.h>
+#include <sel4utils/helpers.h>
 #include <sel4utils/util.h>
 }
 
@@ -69,6 +70,8 @@ struct TCBSetupOperation {
     seL4_Word entry_addr;
     seL4_Word stack_pointer_addr;
     seL4_Word ipc_buffer_addr;
+    seL4_Word arg0;
+    seL4_Word arg1;
     uint32_t cspace;
     uint32_t vspace;
     uint32_t ipc_buffer;

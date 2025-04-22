@@ -71,8 +71,8 @@ def gen_binary_chunk_load_ops(ctx: Context):
 def gen_tcb_setup_ops(ctx: Context):
     for thread in ctx.threads.values():
         tcb_setup_op = op_types.TCBSetupOperation(tcb=thread.tcb, cspace=thread.cspace, vspace=thread.vspace, ipc_buffer=thread.ipc_buffer,
-                                                  entry_addr=thread.vspace.elf.header.e_entry, ipc_buffer_addr=thread.ipc_buffer_addr,
-                                                  stack_pointer_addr=thread.stack_pointer_addr)
+                                                  entry_addr=thread.entry_addr, ipc_buffer_addr=thread.ipc_buffer_addr,
+                                                  stack_pointer_addr=thread.stack_pointer_addr, arg0=thread.arg0, arg1=thread.arg1)
         ctx.ops_list.append(tcb_setup_op)
 
 

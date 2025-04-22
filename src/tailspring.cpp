@@ -202,7 +202,15 @@ bool doTCBSetupOp(CapOperation* cap_op) {
     error = seL4_TCB_ReadRegisters(first_empty_slot + cap_op->tcb_setup_op.tcb, 0, 0, sizeof(regs)/sizeof(seL4_Word), &regs);
     if (error != seL4_NoError) return false;
 
-    sel4utils_set_instruction_pointer(&regs, cap_op->tcb_setup_op.entry_addr);
+    sel4utils_arch_init_local_context(  (sel4utils_thread_entry_fn)cap_op->tcb_setup_op.entry_addr,
+                                        (void*)cap_op->tcb_setup_op.arg0,
+                                        (void*)cap_op->tcb_setup_op.arg1,
+                                        (void*)0,   // We only use arg0 and arg1, no arg2
+                                        (void*)cap_op->tcb_setup_op.stack_pointer_addr,
+                                        &regs);
+
+    // sel4utils_arch_init_local_context tries to be smart and tweaks around the stack pointer a little bit,
+    // so we need to manually set it again
     sel4utils_set_stack_pointer(&regs, cap_op->tcb_setup_op.stack_pointer_addr);
 
     error = seL4_TCB_WriteRegisters(first_empty_slot + cap_op->tcb_setup_op.tcb, 0, 0, sizeof(regs)/sizeof(seL4_Word), &regs);
@@ -259,7 +267,7 @@ int main() {
 
     printf("Hello world!\n");
     printf("Slots needed: %lu\n", SLOTS_REQUIRED);
-    
+
     loadBootInfo();
 
 

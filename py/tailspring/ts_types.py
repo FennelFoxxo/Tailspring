@@ -161,7 +161,7 @@ class VSpace(Cap):
         if self.symtab is None:
             raise RuntimeError(f"No symbol table for '{self.binary_name}' found")
         matching_symbols = self.symtab.get_symbol_by_name(symbol_name)
-        return matching_symbols[0] if len(matching_symbols) > 0 else None
+        return None if matching_symbols is None else matching_symbols[0]
 
 
 @dataclass
@@ -171,6 +171,12 @@ class Thread:
     vspace: VSpace
     ipc_buffer: Cap
     stack_size: int
+    entry_addr: int
+
+    # Set in thread_setup when stack is being initialized
+    arg0: int = field(init=False)
+    arg1: int = field(init=False)
+
     ipc_buffer_addr: int = field(init=False)
     stack_top_addr: int = field(init=False)  # The address of the top of the stack chunk
     stack_pointer_addr: int = field(init=False)  # The address that should be loaded into the stack pointer on thread start
