@@ -56,23 +56,6 @@ class CapAddresses:
 
 
 @dataclass
-class Segment:
-    name: str
-    segment_raw: elffile.Segment
-    # Can be generated from segment name
-    start_symbol: str = field(init=False)
-
-    # Set in startup_threads when obj file is created
-    segment_obj_path: Path = field(init=False)
-    load_vaddr: int = field(init=False)
-    load_length: int = field(init=False)
-
-    def __post_init__(self):
-        prefix = f'_binary_{self.name}_bin_'
-        self.start_symbol = prefix + 'start'
-
-
-@dataclass
 class BinaryChunk:
     name: str
     data: bytes

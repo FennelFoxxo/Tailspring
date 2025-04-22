@@ -48,38 +48,38 @@ class Stack:
         self.args_start -= arg_length  # Create space for arg
         self.args.append(Stack.Arg(data=data, addr=self.args_start))
 
-    def genStackData(self) -> bytes:
+    def gen_stack_data(self) -> bytes:
         # Represents the bytes of the stack as read from the lowest address to the highest
         data = bytes()
 
         word_size = self.ctx.sel4_info['literals']['seL4_WordBits'] // 8
 
         # Write num args
-        data += self.wordToBytes(len(self.args))
+        data += self.word_to_bytes(len(self.args))
 
         # Write arg pointers (process name is first arg)
         for arg in self.args:
-            data += self.wordToBytes(arg.addr)
+            data += self.word_to_bytes(arg.addr)
 
         # Empty string
-        data += self.wordToBytes(0)
+        data += self.word_to_bytes(0)
 
         # Environment pointers would go here, but we're not using them
 
         # Null terminator
-        data += self.wordToBytes(0)
+        data += self.word_to_bytes(0)
 
         # Auxiliary vector entries
         # Each auxiliary vector is a struct consisting of a_type (an int) and a_un (a union of a_val, a_ptr, and a_fnc which are all words)
         for auxv in self.aux_vectors:
-            data += self.intToBytes(auxv.a_type)
+            data += self.int_to_bytes(auxv.a_type)
             # Compiler-added padding between struct members a_type and a_un
             data += bytes(self.ctx.sel4_info['literals']['offsetof(auxv_t, a_un)'] - self.ctx.sel4_info['literals']['sizeof(int)'])
-            data += self.wordToBytes(auxv.a_val)
+            data += self.word_to_bytes(auxv.a_val)
 
         # Zero auxiliary vector
-        data += self.intToBytes(self.ctx.sel4_info['literals']['AT_NULL'])
-        data += self.wordToBytes(0)
+        data += self.int_to_bytes(self.ctx.sel4_info['literals']['AT_NULL'])
+        data += self.word_to_bytes(0)
 
         # Generate region where args are to be stored
         arg_data = bytes()
@@ -103,12 +103,12 @@ class Stack:
 
         return data
 
-    def wordToBytes(self, val: int) -> bytes:
+    def word_to_bytes(self, val: int) -> bytes:
         word_bytes = self.ctx.sel4_info['literals']['seL4_WordBits'] // 8
         endianness = self.ctx.sel4_info['endianness']
         return val.to_bytes(length=word_bytes, byteorder=endianness, signed=False)
 
-    def intToBytes(self, val: int) -> bytes:
+    def int_to_bytes(self, val: int) -> bytes:
         int_bytes = self.ctx.sel4_info['literals']['sizeof(int)']
         endianness = self.ctx.sel4_info['endianness']
         return val.to_bytes(length=int_bytes, byteorder=endianness, signed=False)
@@ -117,14 +117,14 @@ class Stack:
 # Even if threads share the same vspace, they each need to have their own ipc buffer and stack
 # Note that this function does generate operations and append them to the op_list, despite it
 # not being in ops_gen - it's just much easier to do the op generation as we crawl over threads
-def setPerThreadValues(ctx: Context):
+def set_per_thread_values(ctx: Context):
     for vspace in ctx.vspaces.values():
-        setSharedVSpaceThreadValues(vspace, ctx)
+        set_shared_vspace_thread_values(vspace, ctx)
 
 
 # Given that we only need to worry about overlapping ipc buffers/stacks for threads that share
 # the same vspace, it makes sense to process all threads sharing a vspace together as a group
-def setSharedVSpaceThreadValues(vspace: ts_types.VSpace, ctx: Context):
+def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
     # Get all threads sharing this vspace
     threads_sharing_vspace = filter(lambda thread: thread.vspace == vspace, ctx.threads.values())
 
@@ -151,16 +151,16 @@ def setSharedVSpaceThreadValues(vspace: ts_types.VSpace, ctx: Context):
 
         # Map IPC buffer
         thread.ipc_buffer_addr = addr_ptr
-        mapExistingFrame(thread.ipc_buffer, vspace, addr_ptr, ctx)
+        map_existing_frame(thread.ipc_buffer, vspace, addr_ptr, ctx)
 
         # Leave another frame in between IPC buffer and next thread's stack
         addr_ptr += ctx.page_size
 
         # Now that we know the ipc buffer address, we can initialize the values on the stack that the seL4 runtime expects
-        initStackForThread(thread, ctx)
+        init_stack_for_thread(thread, ctx)
 
 
-def mapExistingFrame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: int, ctx: Context):
+def map_existing_frame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: int, ctx: Context):
     paging_structure_for_vspace = ctx.paging_structures[vspace.name]
 
     # Map stack frame
@@ -171,21 +171,9 @@ def mapExistingFrame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: in
     paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
 
 
-def createAndMapNewFrame(frame_cap_name: str, vspace: ts_types.VSpace, vaddr: int, ctx: Context):
-    frame_cap = ts_types.Cap(frame_cap_name, ts_enums.CapType.frame)
-    ctx.cap_addresses.append(frame_cap)
-
-    # Create stack frame
-    create_op = op_types.CapCreateOperation(frame_cap, ctx.page_size_bits)
-    ctx.ops_list.append(create_op)
-
-    # Map stack frame
-    mapExistingFrame(frame_cap, vspace, vaddr, ctx)
-
-
-def initStackForThread(thread: ts_types.Thread, ctx: Context):
+def init_stack_for_thread(thread: ts_types.Thread, ctx: Context):
     stack = Stack(thread, ctx)
-    stack_data = stack.genStackData()
+    stack_data = stack.gen_stack_data()
 
     # The stack starts from the top and grows down, so padding needs to be added so that the stack data is at the top
     stack_data_padded = bytes(thread.stack_size - len(stack_data)) + stack_data

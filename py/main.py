@@ -27,7 +27,7 @@ def main():
     paging.create_paging_structures(ctx)
 
     # Set the values of per-thread attributes such as stack address and ipc buffer address - this does create some operations as well
-    thread_setup.setPerThreadValues(ctx)
+    thread_setup.set_per_thread_values(ctx)
 
     # Parse the elf files associated with each vspace, extract the load segments, and combine them together into a single linkable obj file
     obj_file_gen.gen_startup_threads_obj_file(ctx)
