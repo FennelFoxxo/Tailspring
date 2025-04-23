@@ -135,10 +135,10 @@ bool doCopyOp(CapOperation* cap_op) {
 }
 
 bool doMintOp(CapOperation* cap_op) {
-    seL4_CapRights_t decoded_rights = seL4_CapRights_new(   cap_op->mint_op.rights & CAP_ALLOW_GRANT_REPLY != 0,
-                                                            cap_op->mint_op.rights & CAP_ALLOW_GRANT != 0,
-                                                            cap_op->mint_op.rights & CAP_ALLOW_READ != 0,
-                                                            cap_op->mint_op.rights & CAP_ALLOW_WRITE != 0);
+    seL4_CapRights_t decoded_rights = seL4_CapRights_new(   (cap_op->mint_op.rights & CAP_ALLOW_GRANT_REPLY) != 0,
+                                                            (cap_op->mint_op.rights & CAP_ALLOW_GRANT) != 0,
+                                                            (cap_op->mint_op.rights & CAP_ALLOW_READ) != 0,
+                                                            (cap_op->mint_op.rights & CAP_ALLOW_WRITE) != 0);
 
     seL4_Error error = seL4_CNode_Mint( seL4_CapInitThreadCNode,
                                         first_empty_slot + cap_op->mint_op.dest,
