@@ -83,7 +83,9 @@ class Stack:
 
         # Generate region where args are to be stored
         arg_data = bytes()
-        for arg in self.args:
+        # Since the first arg is placed at the top of the stack, but we're building the stack from the bottom up,
+        # we need to revers args so that the first arg added through add_arg is appended last
+        for arg in reversed(self.args):
             arg_data += arg.data
 
         # The stack is expected to be aligned to the nearest 16 bytes
