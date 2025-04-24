@@ -46,7 +46,7 @@ void loadBootInfo() {
     }
 }
 
-void printOp(const CapOperation* c) {
+void debugPrintOp(const CapOperation* c) {
     switch (c->op_type) {
         case CREATE_OP:
             printf("Create (size=%u) (dest=%u)\n",
@@ -263,9 +263,15 @@ bool executeOperations() {
     return true;
 }
 
+void debugPrintOps() {
+    for (int i = 0; i < NUM_OPERATIONS; i++) {
+        debugPrintOp(&cap_operations[i]);
+    }
+}
+
 int main() {
 
-    printf("Hello world!\n");
+    printf("Tailspring launched\n");
     printf("Slots needed: %lu\n", SLOTS_REQUIRED);
 
     loadBootInfo();
@@ -276,9 +282,7 @@ int main() {
         halt();
     }
 
-    for (int i = 0; i < NUM_OPERATIONS; i++) {
-        printOp(&cap_operations[i]);
-    }
+    debugPrintOps();
 
     if (!executeOperations()) {
         printf("Failed to execute operations\n");
