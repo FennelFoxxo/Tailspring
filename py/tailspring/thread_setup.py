@@ -175,6 +175,7 @@ def map_existing_frame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: 
 
 def init_stack_for_thread(thread: ts_types.Thread, ctx: Context):
     stack = Stack(thread, ctx)
+    [stack.add_arg(arg) for arg in thread.args]
     stack_data = stack.gen_stack_data()
 
     # The stack starts from the top and grows down, so padding needs to be added so that the stack data is at the top

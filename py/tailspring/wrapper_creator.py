@@ -132,5 +132,8 @@ def create_thread_wrappers(ctx: Context):
         else:
             entry_addr = vspace.elf.header.e_entry
 
-        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size, entry_addr=entry_addr)
+        # Custom arguments may be passed
+        args = [str(arg) for arg in thread_info['args']] if 'args' in thread_info else []
+
+        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size, entry_addr=entry_addr, args=args)
         ctx.threads[tcb_name] = thread

@@ -155,8 +155,10 @@ class Thread:
     ipc_buffer: Cap
     stack_size: int
     entry_addr: int
+    args: List[str]  # List of strings that are passed in argv
 
     # Set in thread_setup when stack is being initialized
+    # arg0 is argc and arg1 is argv
     arg0: int = field(init=False)
     arg1: int = field(init=False)
 
