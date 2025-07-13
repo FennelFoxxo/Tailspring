@@ -1,7 +1,22 @@
 # Tailspring
-Tailspring is a tool, designed to be used with the seL4 microkernel, to configure and start threads on system boot. Given a configuration file (specifying the intended system state) and a list of executables (the compiled programs for the threads which should be launched), Tailspring will generate an executable that should be set as the root task. The data for each thread is embedded within the Tailspring loader. On system boot, the Tailspring loader will load each thread into memory, set up capabilities, and pass arguments to each thread, all according to the configuration file.
+Tailspring is a build-time code generation tool and a run-time root task for the seL4 microkernel that automates the complex process of setting up a multi-threaded system. Given a configuration file and a list of executables, Tailspring generates a root task that will automatically configure capabilities and launch your threads on system boot.
 
-# How it works
+1. Create a configuration file `tailspringconfig.yaml` describing your intended system state
+2. Set CMake variables pointing to your config and thread executables
+3. Build - Tailspring generates the root task loader
+4. Boot - The loader sets up the system and starts all threads
+
+# What problem does Tailspring solve?
+Setting up a multi-threaded seL4 system manually requires:
+- Creating hundreds of capability operations in the correct order
+- Generating complex memory paging structures for each address space
+- Formatting thread stacks according to seL4 runtime requirements
+- Managing capability slots and addressing
+- Embedding thread binaries and mapping them to correct virtual addresses
+  
+Tailspring handles this automatically, reducing the amount of seL4 boilerplate required.
+
+# How it works internally
 Most of the work is done up-front by a Python script which is run when the project is compiled. Here is the basic overview of what the script does:
 - Just before the script is run, CMake generates a "get_sel4_info" executable which is linked with the seL4 kernel. The Python script runs this program, which outputs some info about how seL4 is configured (arch, object sizes, endianness).
 - The script parses the configuration file. Every capability to be created is assigned a slot number, and a list of retype, modify, move, and copy operations is generated.
@@ -44,7 +59,7 @@ The config file specifies the capabilities and threads to create, and how caps s
     - `entry`: optional - overrides the entry address of the thread, as the default entry address is the e_entry value in the ELF file header. If provided, this should be the name of a symbol in the ELF file.
     - `args`: optional - a list of arguments that should be passed to the thread. Even if no arguments are provided, the name of this thread/TCB will be passed as the first argument to the thread.
 
-An example config file is given:
+An example producer-consumer system with shared memory:
 ```
 caps:
     consumer_thread: tcb
