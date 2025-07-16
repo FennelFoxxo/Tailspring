@@ -75,7 +75,8 @@ add_custom_target(TAILSPRING_GEN_HEADER_TARGET DEPENDS ${TAILSPRING_GEN_HEADER_P
 # Compile Tailspring thread
 add_executable(             tailspring "${TAILSPRING_SOURCE_DIR}/tailspring.cpp")
 target_include_directories( tailspring PRIVATE "${TAILSPRING_INCLUDE_DIR}" "${TAILSPRING_SOURCE_DIR}")
+target_link_libraries(      tailspring "-Wl,-z noexecstack")
 target_link_libraries(      tailspring sel4muslcsys "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}")
-target_link_libraries(tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
+target_link_libraries(      tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
 add_dependencies(           tailspring TAILSPRING_GEN_HEADER_TARGET)
-set_target_properties(tailspring PROPERTIES LINK_DEPENDS "${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
+set_target_properties(      tailspring PROPERTIES LINK_DEPENDS "${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")
