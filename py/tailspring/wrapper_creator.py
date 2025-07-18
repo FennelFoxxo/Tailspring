@@ -76,6 +76,29 @@ def create_cnode_wrappers(ctx: Context):
         cnode = ts_types.CNode(name=cnode_name, type=ts_enums.CapType.cnode, size=size, guard=guard, caps=cap_dict)
         ctx.cap_addresses.append(cnode)
 
+        # This cnode is designated to hold leftover general purpose untypeds (non-device memory)
+        if 'gp_untypeds' in cnode_info:
+            gp_untypeds_start = cnode_info['gp_untypeds']
+            # Make sure another cnode hasn't already been set as the leftover untypeds cnode
+            if ctx.gp_untypeds_cnode is not None:
+                raise ValueError(f"Duplicate leftover_untypeds_start found at cnode {cnode_name}")
+
+            if gp_untypeds_start in cap_indexes:
+                raise ValueError(f"leftover_untypeds_start conflicts with assigned slot {gp_untypeds_start} in cnode {cnode_name}")
+
+            ctx.gp_untypeds_cnode = cnode
+            cnode.gp_untypeds_start = gp_untypeds_start
+
+            # Find upper bound of untypeds
+            # Lower bound is inclusive, upper bound is exclusive
+            assigned_slots_above_start = [e for e in cap_indexes if e > gp_untypeds_start]
+            if assigned_slots_above_start:
+                # If there are assigned slots above leftover_untypeds_start, the lowest slot sets the upper bound for the range
+                cnode.gp_untypeds_end = min(assigned_slots_above_start)
+            else:
+                # Else, the upper bound of the range is limited by the size of the cnode
+                cnode.gp_untypeds_end = 1 << size
+
 
 # Process vspaces
 def create_vspace_wrappers(ctx: Context):
@@ -105,6 +128,7 @@ def create_thread_wrappers(ctx: Context):
         cspace = ctx.cap_addresses.get_cap_by_name(cspace_name)
         if cspace.type != ts_enums.CapType.cnode:
             raise ValueError(f"Expected CSpace '{cspace_name}' in threads section to be a cnode")
+        assert isinstance(cspace, ts_types.CNode)  # Suppress pycharm warning that ts_types.Thread constructor expects a CNode but a Cap is being passed
 
         # Vspace should be a key in ctx.vspaces
         vspace_name = thread_info['vspace']

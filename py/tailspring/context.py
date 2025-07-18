@@ -35,6 +35,10 @@ class Context:
     vspaces: Dict[str, ts_types.VSpace] = field(default_factory=dict)  # Maps vspace name to vspace object
     threads: Dict[str, ts_types.Thread] = field(default_factory=dict)  # Maps thread name (tcb name) to thread object
 
+    # Optional cnode that can be designated to store leftover general purpose untypeds (i.e. the rest of the system's non-device memory)
+    # after tailspring is done allocating objects. Only one cnode can be set for this
+    gp_untypeds_cnode: ts_types.CNode = None
+
     # List of operations
     ops_list: List[op_types.Operation] = field(default_factory=list)
 

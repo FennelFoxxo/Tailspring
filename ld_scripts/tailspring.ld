@@ -8,11 +8,15 @@ SECTIONS {
 
 . = ALIGN(4K);
 
-_startup_threads_data_start = .;
+_lowest_vaddr = .;
 
 .startup_threads_data : { *(.startup_threads_data) } : startup_threads_data
 
 . = ALIGN(4K);
+
+_free_page = .;
+
+. += 4K;
 
 .text : { *(.text) } : code
 .init : { *(.init) } : code

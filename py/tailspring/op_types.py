@@ -125,7 +125,7 @@ class BinaryChunkLoadOperation(Operation):
 
 class TCBSetupOperation(Operation):
     def __init__(self, tcb: ts_types.Cap, cspace: ts_types.Cap, vspace: ts_types.VSpace, ipc_buffer: ts_types.Cap,
-                 ipc_buffer_addr: int, entry_addr: int, stack_pointer_addr: int, arg0: int, arg1: int):
+                 ipc_buffer_addr: int, entry_addr: int, stack_pointer_addr: int, arg0: int, arg1: int, arg2: int):
         self.tcb = tcb
         self.cspace = cspace
         self.vspace = vspace
@@ -135,6 +135,7 @@ class TCBSetupOperation(Operation):
         self.stack_pointer_addr = stack_pointer_addr
         self.arg0 = arg0
         self.arg1 = arg1
+        self.arg2 = arg2
 
     def format_as_C_entry(self) -> List[str]:
         return [self.format_args_as_C_entry('tcb_setup_op',
@@ -143,6 +144,7 @@ class TCBSetupOperation(Operation):
                                             ipc_buffer_addr=self.ipc_buffer_addr,
                                             arg0=self.arg0,
                                             arg1=self.arg1,
+                                            arg2=self.arg2,
                                             cspace=self.cspace.address,
                                             vspace=self.vspace.address,
                                             ipc_buffer=self.ipc_buffer.address,
@@ -162,6 +164,36 @@ class MapFrameOperation(Operation):
                                             vaddr=self.vaddr,
                                             frame=self.frame.address,
                                             vspace=self.vspace.address
+                                            )]
+
+
+class PassGPUntypedsOperation(Operation):
+    def __init__(self, cnode_dest: ts_types.CNode, start_slot: int, end_slot: int, cnode_depth: int):
+        self.cnode_dest = cnode_dest
+        self.start_slot = start_slot
+        self.end_slot = end_slot
+        self.cnode_depth = cnode_depth
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('pass_gp_untypeds_op',
+                                            cnode_dest=self.cnode_dest.address,
+                                            start_slot=self.start_slot,
+                                            end_slot=self.end_slot,
+                                            cnode_depth=self.cnode_depth
+                                            )]
+
+
+class PassGPMemoryInfoOperation(Operation):
+    def __init__(self, dest_vaddr: int, frame: ts_types.Cap, dest_vspace: ts_types.VSpace):
+        self.dest_vaddr = dest_vaddr
+        self.frame = frame
+        self.dest_vspace = dest_vspace
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('pass_gp_memory_info_op',
+                                            dest_vaddr=self.dest_vaddr,
+                                            frame=self.frame.address,
+                                            dest_vspace=self.dest_vspace.address
                                             )]
 
 

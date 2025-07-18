@@ -26,6 +26,8 @@ class CNode(Cap):
     size: int
     guard: int
     caps: Dict[int, Cap]
+    gp_untypeds_start: Optional[int] = None
+    gp_untypeds_end: Optional[int] = None
 
 
 class CapAddresses:
@@ -150,17 +152,19 @@ class VSpace(Cap):
 @dataclass
 class Thread:
     tcb: Cap
-    cspace: Cap
+    cspace: CNode
     vspace: VSpace
     ipc_buffer: Cap
     stack_size: int
     entry_addr: int
     args: List[str]  # List of strings that are passed in argv
+    envps: List[str] = field(default_factory=list)  # List of strings that are passed as environment pointers
 
     # Set in thread_setup when stack is being initialized
     # arg0 is argc and arg1 is argv
     arg0: int = field(init=False)
     arg1: int = field(init=False)
+    arg2: int = field(init=False)
 
     ipc_buffer_addr: int = field(init=False)
     stack_top_addr: int = field(init=False)  # The address of the top of the stack chunk
