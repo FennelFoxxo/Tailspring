@@ -1,4 +1,4 @@
-project(Tailspring C CXX)
+project(tailspring C CXX)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(ExternalProject)
