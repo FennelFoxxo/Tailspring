@@ -1,0 +1,1 @@
+int tailspring_lib_test_int = 12345;

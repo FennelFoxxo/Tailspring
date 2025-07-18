@@ -1,0 +1,1 @@
+extern int tailspring_lib_test_int;
