@@ -11,6 +11,9 @@ if(NOT DEFINED TAILSPRING_THREAD_DICT)
     message(FATAL_ERROR "TAILSPRING_THREAD_DICT is not set")
 endif(NOT DEFINED TAILSPRING_THREAD_DICT)
 
+# Compile tailspring lib for child threads to use
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/lib" tailspring_lib)
+
 # Given the startup thread dict, get only the values (file paths)
 # and combine them into a list to use as a dependency
 foreach(keyvalue ${TAILSPRING_THREAD_DICT})
@@ -22,12 +25,12 @@ endforeach()
 set(TAILSPRING_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}")
 set(TAILSPRING_SOURCE_DIR "${TAILSPRING_PROJECT_DIR}/src")
 set(TAILSPRING_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-set(TAILSPRING_GENERATED_DIR "${TAILSPRING_BINARY_DIR}/generated")
-set(TAILSPRING_INCLUDE_DIR "${TAILSPRING_GENERATED_DIR}/include")
+set(TAILSPRING_GEN_DIR "${TAILSPRING_BINARY_DIR}/generated")
+set(TAILSPRING_GEN_INCLUDE_DIR "${TAILSPRING_GEN_DIR}/include")
 set(TAILSPRING_CONFIG_PATH "${RUNTIME_CONFIGS_DIR}/${TAILSPRING_CONFIG_FILENAME}")
 
 # Creates both generated and include directories
-file(MAKE_DIRECTORY "${TAILSPRING_INCLUDE_DIR}")
+file(MAKE_DIRECTORY "${TAILSPRING_GEN_INCLUDE_DIR}")
 
 set(TAILSPRING_PYTHON_DIR "${TAILSPRING_PROJECT_DIR}/py")
 set(TAILSPRING_PYTHON_SCRIPT "${TAILSPRING_PYTHON_DIR}/main.py")
@@ -48,8 +51,8 @@ list(APPEND TAILSPRING_PYTHON_DEPENDS
 list(TRANSFORM TAILSPRING_PYTHON_DEPENDS PREPEND "${TAILSPRING_PYTHON_DIR}/")
 
 # Output paths
-set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_INCLUDE_DIR}/tailspring_gen_config.hpp")
-set(TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH "${TAILSPRING_GENERATED_DIR}/startup_threads.o")
+set(TAILSPRING_GEN_HEADER_PATH "${TAILSPRING_GEN_INCLUDE_DIR}/tailspring_gen_config.hpp")
+set(TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH "${TAILSPRING_GEN_DIR}/startup_threads.o")
 
 # Generate C program to print out sel4 object sizes
 add_executable(         tailspring_get_sel4_info "${TAILSPRING_SOURCE_DIR}/get_sel4_info.cpp")
@@ -66,7 +69,7 @@ add_custom_command(
         --output-header "${TAILSPRING_GEN_HEADER_PATH}"
         --output-startup-threads-obj "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}"
     DEPENDS "${TAILSPRING_CONFIG_PATH}" ${TAILSPRING_PYTHON_DEPENDS} tailspring_get_sel4_info ${TAILSPRING_THREAD_DEPENDS}
-    WORKING_DIRECTORY "${TAILSPRING_GENERATED_DIR}"
+    WORKING_DIRECTORY "${TAILSPRING_GEN_DIR}"
     COMMENT "Generating Tailspring header file"
     COMMAND_EXPAND_LISTS
 )
@@ -74,7 +77,7 @@ add_custom_target(TAILSPRING_GEN_HEADER_TARGET DEPENDS ${TAILSPRING_GEN_HEADER_P
 
 # Compile Tailspring thread
 add_executable(             tailspring "${TAILSPRING_SOURCE_DIR}/tailspring.cpp")
-target_include_directories( tailspring PRIVATE "${TAILSPRING_INCLUDE_DIR}" "${TAILSPRING_SOURCE_DIR}")
+target_include_directories( tailspring PRIVATE "${TAILSPRING_GEN_INCLUDE_DIR}" "${TAILSPRING_SOURCE_DIR}" "${TAILSPRING_LIB_INCLUDE_SHARED_DIR}")
 target_link_libraries(      tailspring "-Wl,-z noexecstack")
 target_link_libraries(      tailspring sel4muslcsys "${TAILSPRING_GEN_STARTUP_THREADS_OBJ_PATH}")
 target_link_libraries(      tailspring "-Wl,-T ${TAILSPRING_PROJECT_DIR}/ld_scripts/tailspring.ld")

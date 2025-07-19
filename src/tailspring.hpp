@@ -9,14 +9,14 @@ extern "C" {
 #include <sel4utils/util.h>
 }
 
+#include <tailspring_shared.h>
+
 #define CAP_ALLOW_WRITE (1<<0)
 #define CAP_ALLOW_READ (1<<1)
 #define CAP_ALLOW_GRANT (1<<2)
 #define CAP_ALLOW_GRANT_REPLY (1<<3)
 #define SYM_VAL(sym) ((seL4_Word)(&sym))
 #define NUM_OPERATIONS (sizeof(cap_operations) / sizeof(cap_operations[0]))
-
-#define WORDS_IN_PAGE ((1 << seL4_PageBits) / sizeof(seL4_Word))
 
 // Each platform has its own platform-specific functions to map in pages and page structures.
 // The specific mapping functions are chosen in the python script and wrappers are generated for the
@@ -130,14 +130,6 @@ struct UntypedInfo {
     seL4_Word bytes_left;
     seL4_CPtr cptr;
 };
-
-// Fills one page
-struct GPMemoryInfo {
-    seL4_Word num_untypeds = 0;
-    seL4_Word untyped_size_bits[WORDS_IN_PAGE - 1];
-};
-
-#define GP_MEMORY_INFO_NUM_ENTRIES (sizeof(GPMemoryInfo::untyped_size_bits) / sizeof(seL4_Word))
 
 // Lowest vaddr mapped in this thread's vspace. Whatever page is here will be at the start
 // of this thread's memory, so the first frame in userImageFrames should be mapped here
