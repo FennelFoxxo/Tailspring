@@ -25,7 +25,7 @@ class CapModification:
 class CNode(Cap):
     size: int
     guard: int
-    caps: Dict[int, Cap]
+    caps: Optional[Dict[int, Cap]] = None
     gp_untypeds_start: Optional[int] = None
     gp_untypeds_end: Optional[int] = None
 

@@ -10,8 +10,8 @@ import tailspring.ts_enums as ts_enums
 def create_object_wrappers(ctx: Context):
     create_initial_cap_wrappers(ctx)
     create_cap_modification_wrappers(ctx)
-    create_cnode_wrappers(ctx)
     create_vspace_wrappers(ctx)
+    create_cnode_wrappers(ctx)
     create_thread_wrappers(ctx)
 
 
@@ -62,6 +62,10 @@ def create_cnode_wrappers(ctx: Context):
         size = cnode_info['size']
         guard = cnode_info['guard']
 
+        # Create cnode object
+        cnode = ts_types.CNode(name=cnode_name, type=ts_enums.CapType.cnode, size=size, guard=guard)
+        ctx.cap_addresses.append(cnode)
+
         # The cnode's child caps are defined in the config file as key value pairs, where the key is an int
         # So we need to extract any keys that are ints, get the corresponding value (the cap name) then look
         # up the cap object by its name
@@ -71,10 +75,7 @@ def create_cnode_wrappers(ctx: Context):
 
         # Finally we create a dict of {index: cap} by zipping up the indexes and the cap objects
         cap_dict = dict(zip(cap_indexes, caps))
-
-        # Create cnode object
-        cnode = ts_types.CNode(name=cnode_name, type=ts_enums.CapType.cnode, size=size, guard=guard, caps=cap_dict)
-        ctx.cap_addresses.append(cnode)
+        cnode.caps = cap_dict
 
         # This cnode is designated to hold leftover general purpose untypeds (non-device memory)
         if 'gp_untypeds' in cnode_info:

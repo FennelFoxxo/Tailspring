@@ -91,7 +91,7 @@ def gen_tcb_start_ops(ctx: Context):
 
 
 def sort_ops_list(ctx: Context):
-    op_order = [op_types.MintOperation, op_types.CopyOperation, op_types.MapOperation, op_types.BinaryChunkLoadOperation,
+    op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.BinaryChunkLoadOperation,
                 op_types.MapFrameOperation, op_types.TCBSetupOperation, op_types.PassGPUntypedsOperation, op_types.PassGPMemoryInfoOperation,
                 op_types.TCBStartOperation]
 
