@@ -14,6 +14,8 @@ seL4_Word num_gp_untypeds = 0;
 seL4_Word num_device_untypeds = 0;
 UntypedInfo gp_untyped_array[GP_UNTYPED_ARRAY_SIZE];
 
+// Free page that can be unmapped
+unsigned char FREE_PAGE[1 << seL4_PageBits] __attribute__((aligned(1 << seL4_PageBits)));
 
 GPMemoryInfo gp_memory_info;
 
@@ -325,11 +327,12 @@ bool doPassGPMemoryInfoOp(CapOperation* cap_op) {
     // Take the frame that will hold the GP memory info and map it into our vspace so we can write to it
     error = wrapperPageMap( dest_frame,
                             seL4_CapInitThreadVSpace,
-                            FREE_PAGE_ADDR);
+                            (seL4_Word)FREE_PAGE);
     if (error != seL4_NoError) return false;
 
     // Then copy the GP memory info into the frame
-    memcpy((void*)FREE_PAGE_ADDR, &gp_memory_info, sizeof(gp_memory_info));
+    memcpy(FREE_PAGE, &gp_memory_info, sizeof(gp_memory_info));
+
 
     // Unmap the frame and map it in the destination vspace
     error = wrapperPageUnmap(dest_frame);
@@ -397,8 +400,8 @@ int main() {
 
     loadBootInfo();
 
-    // Unmap default frame so that we can map other frames at FREE_PAGE_ADDR
-    if (wrapperPageUnmap(getFrameForAddr(FREE_PAGE_ADDR)) != seL4_NoError) {
+    // Unmap free page so that we can map other frames here
+    if (wrapperPageUnmap(getFrameForAddr((seL4_Word)FREE_PAGE)) != seL4_NoError) {
         printf("Failed to unmap free page\n");
         halt();
     }

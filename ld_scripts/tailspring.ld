@@ -14,10 +14,6 @@ _lowest_vaddr = .;
 
 . = ALIGN(4K);
 
-_free_page = .;
-
-. += 4K;
-
 .text : { *(.text) } : code
 .init : { *(.init) } : code
 .fini : { *(.fini) } : code

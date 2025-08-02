@@ -135,10 +135,6 @@ struct UntypedInfo {
 // of this thread's memory, so the first frame in userImageFrames should be mapped here
 extern void* _lowest_vaddr;
 
-// Free frame/4k page that can be used for anything
-extern void* _free_page;
-#define FREE_PAGE_ADDR SYM_VAL(_free_page)
-
 #define ENABLE_X86_ASIDPOOL_ASSIGN \
 seL4_Error wrapper_X86_ASIDPool_Assign(CapOperation* cap_op, seL4_Word first_empty_slot) { \
     return seL4_X86_ASIDPool_Assign( \
