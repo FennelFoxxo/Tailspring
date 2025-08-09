@@ -142,7 +142,8 @@ class PagingStructure:
             cap = vspace
         else:
             cap_name = f'{vspace.name}_{self.structure_type.name}_{self.vaddr}__'
-            cap = ts_types.Cap(cap_name, self.structure_type)
+            can_be_derived = not self.structure_type in ctx.underivable_cap_types
+            cap = ts_types.Cap(cap_name, self.structure_type, can_be_derived)
             ctx.cap_addresses.append(cap)
 
         size_bits = ctx.sel4_info['object_sizes'][cap.type.value]

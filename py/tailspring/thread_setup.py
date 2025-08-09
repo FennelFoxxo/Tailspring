@@ -259,7 +259,7 @@ def map_existing_frame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: 
 
 # Returns the cap to the frame that was created
 def create_new_frame(name: str, vspace: ts_types.VSpace, vaddr: int, ctx: Context) -> ts_types.Cap:
-    frame = ts_types.Cap(name, ts_enums.CapType.frame)
+    frame = ts_types.Cap(name=name, type=ts_enums.CapType.frame, can_be_derived=True)
     ctx.cap_addresses.append(frame)
     ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
 

@@ -20,6 +20,9 @@ def main():
     # Depending on the arch we're building for, different cap types and so different enums are available
     ts_enums.extend_CapType_enums_with_arch(ctx.arch)
 
+    # Get the list of underivable cap types after we've extended enums
+    ctx.underivable_cap_types = ts_enums.get_underivable_cap_types()
+
     # Convert the data in the configuration file into objects that are easier to manipulate
     wrapper_creator.create_object_wrappers(ctx)
 

@@ -90,6 +90,22 @@ class CopyOperation(Operation):
                                             )]
 
 
+class MoveOperation(Operation):
+    def __init__(self, src: ts_types.Cap, dest: ts_types.CNode, index: int):
+        assert (dest.caps[index] == src)
+        self.src = src
+        self.dest = dest
+        self.index = index
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('move_op',
+                                            src=self.src.address,
+                                            dest_root=self.dest.address,
+                                            dest_index=self.index,
+                                            dest_depth=self.dest.size + self.dest.guard
+                                            )]
+
+
 class MapOperation(Operation):
     def __init__(self, service: ts_types.Cap, vspace: ts_types.Cap, vaddr: int, map_func: str):
         self.service = service

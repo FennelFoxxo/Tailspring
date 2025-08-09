@@ -7,7 +7,7 @@ def gen_cap_ops_list(ctx: Context):
     gen_cap_create_ops(ctx)
     gen_cnode_create_ops(ctx)
     gen_mint_ops(ctx)
-    gen_copy_ops(ctx)
+    gen_copy_move_ops(ctx)
     gen_paging_ops(ctx)
     gen_binary_chunk_load_ops(ctx)
     gen_tcb_setup_ops(ctx)
@@ -44,14 +44,17 @@ def gen_mint_ops(ctx: Context):
         ctx.ops_list.append(mint_op)
 
 
-# Corresponds to copy operations to copy the caps into their final location in the created cnodes
-def gen_copy_ops(ctx: Context):
+# Corresponds to copy/move operations to copy the caps into their final location in the created cnodes
+def gen_copy_move_ops(ctx: Context):
     for cnode_name in ctx.config['cnodes']:
         cnode = ctx.cap_addresses.get_cap_by_name(cnode_name)
         assert isinstance(cnode, ts_types.CNode)
-        for slot_index, cap_to_copy in cnode.caps.items():
-            copy_op = op_types.CopyOperation(src=cap_to_copy, dest=cnode, index=slot_index)
-            ctx.ops_list.append(copy_op)
+        for slot_index, cap_to_place in cnode.caps.items():
+            if cap_to_place.can_be_derived:
+                op = op_types.CopyOperation(src=cap_to_place, dest=cnode, index=slot_index)
+            else:
+                op = op_types.MoveOperation(src=cap_to_place, dest=cnode, index=slot_index)
+            ctx.ops_list.append(op)
 
 
 # Generates both create ops and map ops because each page structure needs to be created and mapped
@@ -99,7 +102,7 @@ def gen_tcb_start_ops(ctx: Context):
 
 
 def sort_ops_list(ctx: Context):
-    op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.BinaryChunkLoadOperation, op_types.MapFrameOperation,
+    op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.MoveOperation, op_types.BinaryChunkLoadOperation, op_types.MapFrameOperation,
                 op_types.TCBSetupOperation, op_types.RetypeLeftoverGPUntypedsOperation, op_types.MoveDeviceUntypedsOperation, op_types.PassGPMemoryInfoOperation,
                 op_types.PassDeviceMemoryInfoOperation, op_types.PassSystemInfoOperation, op_types.TCBStartOperation]
 

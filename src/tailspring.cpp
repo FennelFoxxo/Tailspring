@@ -103,6 +103,10 @@ void debugPrintOp(const CapOperation* c) {
             printf("Copy (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n",
                 c->copy_op.src, c->copy_op.dest_root, c->copy_op.dest_index, c->copy_op.dest_depth);
             break;
+        case MOVE_OP:
+            printf("Move (src=%u) (dest_root=%u) (dest_index=%u) (dest_depth=%u)\n",
+                c->move_op.src, c->move_op.dest_root, c->move_op.dest_index, c->move_op.dest_depth);
+            break;
         case MUTATE_OP:
             printf("Mutate (src=%u) (dest=%u) (guard=%lu)\n",
                 c->mutate_op.src, c->mutate_op.dest, c->mutate_op.guard);
@@ -194,6 +198,16 @@ bool doCopyOp(CapOperation* cap_op) {
                                         seL4_CapInitThreadCNode,
                                         first_empty_slot + cap_op->copy_op.src,
                                         seL4_WordBits, seL4_AllRights);
+    return (error == seL4_NoError);
+}
+
+bool doMoveOp(CapOperation* cap_op) {
+    seL4_Error error = seL4_CNode_Move( first_empty_slot + cap_op->move_op.dest_root,
+                                        cap_op->move_op.dest_index,
+                                        cap_op->move_op.dest_depth,
+                                        seL4_CapInitThreadCNode,
+                                        first_empty_slot + cap_op->move_op.src,
+                                        seL4_WordBits);
     return (error == seL4_NoError);
 }
 
@@ -489,6 +503,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doCreateOp(cap_op);
         case COPY_OP:
             return doCopyOp(cap_op);
+        case MOVE_OP:
+            return doMoveOp(cap_op);
         case MINT_OP:
             return doMintOp(cap_op);
         case MUTATE_OP:

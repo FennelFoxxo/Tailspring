@@ -49,4 +49,8 @@ def extend_CapType_enums_with_arch(arch: Arch):
         CapType = extend_enums(CapType, {'frame': CapType.x86_4K.value, 'vspace': CapType.pml4.value})
 
 
+def get_underivable_cap_types():
+    return [CapType.pdpt, CapType.page_directory, CapType.page_table]
+
+
 __all__ = ['Arch', 'CapType', 'CapRight', 'extend_CapType_enums_with_arch']

@@ -10,7 +10,9 @@ import elftools.elf.sections as elfsections
 class Cap:
     name: str
     type: ts_enums.CapType
+    can_be_derived: bool
     address: int = field(init=False)
+    already_in_cnode: bool = field(init=False, default=False)
 
 
 @dataclass

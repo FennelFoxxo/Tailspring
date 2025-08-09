@@ -25,7 +25,8 @@ def create_initial_cap_wrappers(ctx: Context):
         if cap_type == ts_enums.CapType.cnode:
             raise ValueError(f"Nested CNode caps are not allowed (cap name: '{cap_name}')")
 
-        cap = ts_types.Cap(name=cap_name, type=cap_type)
+        can_be_derived = cap_type not in ctx.underivable_cap_types
+        cap = ts_types.Cap(name=cap_name, type=cap_type, can_be_derived=can_be_derived)
         ctx.cap_addresses.append(cap)
 
 
@@ -39,13 +40,16 @@ def create_cap_modification_wrappers(ctx: Context):
         src_cap_name = mod_info['original']
         src_cap = ctx.cap_addresses.get_cap_by_name(src_cap_name)
 
+        if not src_cap.can_be_derived:
+            raise ValueError(f"Cap with name '{src_cap_name}' cannot be derived from")
+
         # Get rights and badge
         rights_list = mod_info['rights']
         rights_enum = [ts_enums.CapRight[right] for right in rights_list]
         badge = mod_info['badge'] if 'badge' in mod_info else 0
 
         # Create dest cap
-        dest_cap = ts_types.Cap(dest_cap_name, src_cap.type)
+        dest_cap = ts_types.Cap(dest_cap_name, src_cap.type, True)
         ctx.cap_addresses.append(dest_cap)
 
         # Create cap mod entry
@@ -63,7 +67,7 @@ def create_cnode_wrappers(ctx: Context):
         guard = cnode_info['guard']
 
         # Create cnode object
-        cnode = ts_types.CNode(name=cnode_name, type=ts_enums.CapType.cnode, size=size, guard=guard)
+        cnode = ts_types.CNode(name=cnode_name, type=ts_enums.CapType.cnode, size=size, guard=guard, can_be_derived=True)
         ctx.cap_addresses.append(cnode)
 
         # The cnode's child caps are defined in the config file as key value pairs, where the key is an int
@@ -72,6 +76,11 @@ def create_cnode_wrappers(ctx: Context):
         cap_indexes = [key for key in cnode_info.keys() if type(key) == int]
         cap_names = [cnode_info[key] for key in cap_indexes]
         caps = [ctx.cap_addresses.get_cap_by_name(name) for name in cap_names]
+
+        for cap in caps:
+            if not cap.can_be_derived and cap.already_in_cnode:
+                raise ValueError(f"Cap with name '{cap.name}' cannot be copied, but was placed in multiple cnodes")
+            cap.already_in_cnode = True
 
         # Finally we create a dict of {index: cap} by zipping up the indexes and the cap objects
         cap_dict = dict(zip(cap_indexes, caps))
@@ -124,7 +133,7 @@ def create_vspace_wrappers(ctx: Context):
             raise ValueError(f"Found duplicate cap with name '{vspace_name}' in vspace section")
 
         binary_path = ctx.startup_threads_paths[binary_name]
-        vspace = ts_types.VSpace(name=vspace_name, type=ts_enums.CapType.vspace, binary_name=binary_name, nonce=index, binary_path=binary_path, alignment=ctx.page_size)
+        vspace = ts_types.VSpace(name=vspace_name, type=ts_enums.CapType.vspace, binary_name=binary_name, nonce=index, binary_path=binary_path, alignment=ctx.page_size, can_be_derived=True)
         ctx.cap_addresses.append(vspace)
         ctx.vspaces[vspace_name] = vspace
 

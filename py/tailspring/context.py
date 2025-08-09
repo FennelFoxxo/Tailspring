@@ -29,6 +29,9 @@ class Context:
     page_size: int = None
     temp_dir: Path = None
 
+    # Some cap types can't be derived from or copied
+    underivable_cap_types: List[ts_enums.CapType] = field(default_factory=list)
+
     # Simple wrappers to represent the structure of the specified config in an easier-to-use format
     cap_addresses: ts_types.CapAddresses = field(default_factory=ts_types.CapAddresses)
     cap_modifications: Dict[str, ts_types.CapModification] = field(default_factory=dict)
