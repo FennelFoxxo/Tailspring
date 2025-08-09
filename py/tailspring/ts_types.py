@@ -160,10 +160,12 @@ class Thread:
     stack_size: int
     entry_addr: int
     args: List[str]  # List of strings that are passed in argv
-    envps: List[str] = field(default_factory=list)  # List of strings that are passed as environment pointers
+    pass_framebuffer_info: bool
 
     # Set in thread_setup when stack is being initialized
-    # arg0 is argc and arg1 is argv
+    envps: List[str] = field(default_factory=list)  # List of strings that are passed as environment pointers
+
+    # arg0 is argc, arg1 is argv, arg2 is envp
     arg0: int = field(init=False)
     arg1: int = field(init=False)
     arg2: int = field(init=False)

@@ -164,56 +164,62 @@ def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
     last_chunk_vaddr = max([chunk.dest_vaddr_aligned + chunk.total_length_with_padding for chunk in vspace.binary_chunks])
     assert (last_chunk_vaddr % ctx.page_size == 0)
 
-    addr_ptr = last_chunk_vaddr
+    curr_addr = last_chunk_vaddr
 
     # We place a thread's stack above the segment, then the IPC buffer, then the next thread's stack, and so on...
     # We leave unmapped pages in between so that a fault with occur if a stack overrun occurs
-    addr_ptr += ctx.page_size
+    curr_addr += ctx.page_size
 
     for thread in threads_sharing_vspace:
         if reserve_gp_memory_info_frame:
             # Use one page for gp memory info (should be plenty)
-            gp_memory_info_addr = addr_ptr
+            gp_memory_info_addr = curr_addr
             create_gp_memory_info_frame(thread, gp_memory_info_addr, ctx)
 
-            # Move up one page for the memory info frame itself, and another to create a gap in between
-            addr_ptr += ctx.page_size * 2
+            curr_addr += ctx.page_size
 
             # Only one gp memory info frame is needed per vspace
             reserve_gp_memory_info_frame = False
 
         if reserve_device_memory_info_frame:
             # Use one page for device memory info
-            device_memory_info_addr = addr_ptr
+            device_memory_info_addr = curr_addr
             create_device_memory_info_frame(thread, device_memory_info_addr, ctx)
 
-            # Move up one page for the memory info frame itself, and another to create a gap in between
-            addr_ptr += ctx.page_size * 2
+            curr_addr += ctx.page_size
 
             # Only one device memory info frame is needed per vspace
             reserve_device_memory_info_frame = False
 
-        # Round stack size up to the nearest multiple of the page size and move addr_ptr to the top of the stack
+        # Create a frame to place system info in
+        system_info_addr = curr_addr
+        create_system_info_frame(thread, system_info_addr, ctx)
+
+        # Move up one page for the system info frame itself, and another to create a gap in between it and the stack
+        curr_addr += ctx.page_size * 2
+
+        # Round stack size up to the nearest multiple of the page size and move curr_addr to the top of the stack
         thread.stack_size += -thread.stack_size % ctx.page_size
 
-        addr_ptr += thread.stack_size
+        curr_addr += thread.stack_size
 
         # Save stack address
-        thread.stack_top_addr = addr_ptr
+        thread.stack_top_addr = curr_addr
 
         # Leave a frame in between stack and IPC buffer
-        addr_ptr += ctx.page_size
+        curr_addr += ctx.page_size
 
         # Map IPC buffer
-        thread.ipc_buffer_addr = addr_ptr
+        thread.ipc_buffer_addr = curr_addr
 
-        map_existing_frame(thread.ipc_buffer, vspace, addr_ptr, ctx)
+        map_existing_frame(thread.ipc_buffer, vspace, curr_addr, ctx)
 
         # Leave another frame in between IPC buffer and next thread's stack
-        addr_ptr += ctx.page_size
+        curr_addr += ctx.page_size
 
         # Environment pointers
         thread.envps.append(f"ipc_buffer={thread.ipc_buffer_addr}")
+        thread.envps.append(f"system_info={system_info_addr}")
 
         if thread.cspace.gp_untypeds_start is not None:
             thread.envps.append(f"gp_memory_info={gp_memory_info_addr}")
@@ -226,27 +232,19 @@ def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
 
 
 def create_gp_memory_info_frame(thread: ts_types.Thread, vaddr: int, ctx: Context):
-    frame = ts_types.Cap(f"{thread.tcb.name}_gp_memory_info_frame", ts_enums.CapType.frame)
-    ctx.cap_addresses.append(frame)
-    ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
-
+    frame = create_new_frame(f"{thread.tcb.name}_gp_memory_info_frame", thread.vspace, vaddr, ctx)
     ctx.ops_list.append(op_types.PassGPMemoryInfoOperation(dest_vaddr=vaddr, frame=frame, dest_vspace=thread.vspace))
-
-    # Make sure paging structures are created to cover this frame
-    paging_structure_for_vspace = ctx.paging_structures[thread.vspace.name]
-    paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
 
 
 def create_device_memory_info_frame(thread: ts_types.Thread, vaddr: int, ctx: Context):
-    frame = ts_types.Cap(f"{thread.tcb.name}_device_memory_info_frame", ts_enums.CapType.frame)
-    ctx.cap_addresses.append(frame)
-    ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
-
+    frame = create_new_frame(f"{thread.tcb.name}_device_memory_info_frame", thread.vspace, vaddr, ctx)
     ctx.ops_list.append(op_types.PassDeviceMemoryInfoOperation(dest_vaddr=vaddr, frame=frame, dest_vspace=thread.vspace))
 
-    # Make sure paging structures are created to cover this frame
-    paging_structure_for_vspace = ctx.paging_structures[thread.vspace.name]
-    paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
+
+def create_system_info_frame(thread: ts_types.Thread, vaddr: int, ctx: Context):
+    frame = create_new_frame(f"{thread.tcb.name}_system_info_frame", thread.vspace, vaddr, ctx)
+    ctx.ops_list.append(op_types.PassSystemInfoOperation(dest_vaddr=vaddr, frame=frame,
+                                                         dest_vspace=thread.vspace, pass_framebuffer_info=thread.pass_framebuffer_info))
 
 
 def map_existing_frame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: int, ctx: Context):
@@ -257,6 +255,19 @@ def map_existing_frame(frame_cap: ts_types.Cap, vspace: ts_types.VSpace, vaddr: 
     # Make sure paging structures are created to cover this frame
     paging_structure_for_vspace = ctx.paging_structures[vspace.name]
     paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
+
+
+# Returns the cap to the frame that was created
+def create_new_frame(name: str, vspace: ts_types.VSpace, vaddr: int, ctx: Context) -> ts_types.Cap:
+    frame = ts_types.Cap(name, ts_enums.CapType.frame)
+    ctx.cap_addresses.append(frame)
+    ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
+
+    # Make sure paging structures are created to cover this frame
+    paging_structure_for_vspace = ctx.paging_structures[vspace.name]
+    paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
+
+    return frame
 
 
 def init_stack_for_thread(thread: ts_types.Thread, ctx: Context):

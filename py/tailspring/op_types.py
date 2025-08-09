@@ -227,6 +227,22 @@ class PassDeviceMemoryInfoOperation(Operation):
                                             )]
 
 
+class PassSystemInfoOperation(Operation):
+    def __init__(self, dest_vaddr: int, frame: ts_types.Cap, dest_vspace: ts_types.VSpace, pass_framebuffer_info: bool):
+        self.dest_vaddr = dest_vaddr
+        self.frame = frame
+        self.dest_vspace = dest_vspace
+        self.pass_framebuffer_info = pass_framebuffer_info
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('pass_system_info_op',
+                                            dest_vaddr=self.dest_vaddr,
+                                            frame=self.frame.address,
+                                            dest_vspace=self.dest_vspace.address,
+                                            pass_framebuffer_info=int(self.pass_framebuffer_info)
+                                            )]
+
+
 class TCBStartOperation(Operation):
     def __init__(self, tcb: ts_types.Cap):
         self.tcb = tcb

@@ -8,12 +8,14 @@ seL4_Word num_empty_slots = 0;
 seL4_Word first_empty_slot = 0;
 
 seL4_CPtr first_untyped = 0;
-seL4_Word num_untypeds = 0;
 seL4_Word num_gp_untypeds = 0;
 seL4_Word num_device_untypeds = 0;
 
 UntypedInfo gp_untyped_array[TAILSPRING_MEM_NUM_ENTRIES];
 UntypedInfo device_untyped_array[TAILSPRING_MEM_NUM_ENTRIES];
+
+// Extra boot info
+TailspringFramebufferInfo* framebuffer_info = nullptr;
 
 // Free page that can be unmapped
 unsigned char FREE_PAGE[1 << seL4_PageBits] __attribute__((aligned(1 << seL4_PageBits)));
@@ -49,6 +51,26 @@ void loadUntypedInfo(seL4_Word untyped_index) {
     dest_info->original_size_bits = untyped->sizeBits;
 }
 
+void loadExtraBootInfo() {
+    char* curr = (char*)boot_info + seL4_BootInfoFrameSize;
+    char* end = curr + boot_info->extraLen;
+    
+    while (curr < end) {
+        seL4_BootInfoHeader* header = (seL4_BootInfoHeader*)curr;
+        void* chunk = curr + sizeof(*header);
+        
+        switch (header->id) {
+            case SEL4_BOOTINFO_HEADER_X86_FRAMEBUFFER:
+                framebuffer_info = (TailspringFramebufferInfo*)chunk;
+                break;
+            default:
+                break;
+        }
+
+        curr += header->len;
+    }
+}
+
 void loadBootInfo() {
     boot_info = platsupport_get_bootinfo();
 
@@ -58,10 +80,13 @@ void loadBootInfo() {
 
     // Get untyped info
     first_untyped = boot_info->untyped.start;
-    num_untypeds = boot_info->untyped.end - first_untyped;
+    size_t num_untypeds = boot_info->untyped.end - first_untyped;
     for (seL4_Word offset = 0; offset < num_untypeds; offset++) {
         loadUntypedInfo(offset);
     }
+    
+    // Get extra boot info
+    loadExtraBootInfo();
 }
 
 void debugPrintOp(const CapOperation* c) {
@@ -113,6 +138,10 @@ void debugPrintOp(const CapOperation* c) {
         case PASS_DEVICE_MEMORY_INFO_OP:
             printf("Pass device memory info (dest vaddr=%lu) (dest_vspace=%u) (frame=%u)\n",
                 c->pass_device_memory_info_op.dest_vaddr, c->pass_device_memory_info_op.dest_vspace, c->pass_device_memory_info_op.frame);
+            break;
+        case PASS_SYSTEM_INFO_OP:
+            printf("Pass system info (dest vaddr=%lu) (dest_vspace=%u) (frame=%u) (pass_framebuffer_info=%u)\n",
+                c->pass_system_info_op.dest_vaddr, c->pass_system_info_op.dest_vspace, c->pass_system_info_op.frame, c->pass_system_info_op.pass_framebuffer_info);
             break;
         case TCB_START_OP:
             printf("TCB start (tcb=%u)\n",
@@ -416,6 +445,39 @@ bool doPassDeviceMemoryInfoOp(CapOperation* cap_op) {
     return true;
 }
 
+bool doPassSystemInfoOp(CapOperation* cap_op) {
+    seL4_Error error;
+    seL4_CPtr dest_frame = first_empty_slot + cap_op->pass_system_info_op.frame;
+    
+    bool pass_framebuffer_info = cap_op->pass_system_info_op.pass_framebuffer_info;
+
+    // Take the frame that will hold the system info and map it into our vspace so we can write to it
+    error = wrapperPageMap( dest_frame,
+                            seL4_CapInitThreadVSpace,
+                            (seL4_Word)FREE_PAGE);
+    if (error != seL4_NoError) return false;
+
+    // Then copy any requested system info into the page
+    TailspringSystemInfo* system_info_dest = (TailspringSystemInfo*)FREE_PAGE;
+    
+    system_info_dest->framebuffer_info_present = pass_framebuffer_info;
+    
+    if (pass_framebuffer_info) {
+        system_info_dest->framebuffer_info = *framebuffer_info;
+    }
+
+    // Unmap the frame and map it in the destination vspace
+    error = wrapperPageUnmap(dest_frame);
+    if (error != seL4_NoError) return false;
+
+    error = wrapperPageMap( dest_frame,
+                            first_empty_slot + cap_op->pass_system_info_op.dest_vspace,
+                            cap_op->pass_system_info_op.dest_vaddr);
+    if (error != seL4_NoError) return false;
+
+    return true;
+}
+
 bool doTCBStartOp(CapOperation* cap_op) {
     seL4_Error error = seL4_TCB_Resume(first_empty_slot + cap_op->tcb_start_op.tcb);
     return (error == seL4_NoError);
@@ -447,6 +509,8 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doPassGPMemoryInfoOp(cap_op);
         case PASS_DEVICE_MEMORY_INFO_OP:
             return doPassDeviceMemoryInfoOp(cap_op);
+        case PASS_SYSTEM_INFO_OP:
+            return doPassSystemInfoOp(cap_op);
         case TCB_START_OP:
             return doTCBStartOp(cap_op);
         default:
@@ -486,7 +550,7 @@ int main() {
     }
 
     debugPrintOps();
-
+    
     if (!executeOperations()) {
         printf("Failed to execute operations\n");
         halt();

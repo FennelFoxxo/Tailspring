@@ -116,6 +116,7 @@ def create_cnode_wrappers(ctx: Context):
                 # Else, the upper bound of the range is limited by the size of the cnode
                 cnode.device_untypeds_end = 1 << size
 
+
 # Process vspaces
 def create_vspace_wrappers(ctx: Context):
     for index, (vspace_name, binary_name) in enumerate(ctx.config['vspaces'].items()):
@@ -175,5 +176,9 @@ def create_thread_wrappers(ctx: Context):
         # Custom arguments may be passed
         args = [str(arg) for arg in thread_info['args']] if 'args' in thread_info else []
 
-        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size, entry_addr=entry_addr, args=args)
+        # System information (e.g. framebuffer info) may be requested to be passed to the thread
+        pass_framebuffer_info = thread_info['pass_framebuffer_info'] if 'pass_framebuffer_info' in thread_info else False
+
+        thread = ts_types.Thread(tcb=tcb, cspace=cspace, vspace=vspace, ipc_buffer=ipc_buffer, stack_size=stack_size,
+                                 entry_addr=entry_addr, args=args, pass_framebuffer_info=pass_framebuffer_info)
         ctx.threads[tcb_name] = thread

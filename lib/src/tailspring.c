@@ -65,3 +65,8 @@ bool tailspring_get_gp_memory_info(char *envp[], TailspringMemoryInfo** gp_memor
 bool tailspring_get_device_memory_info(char *envp[], TailspringMemoryInfo** device_memory_info_out) {
     return get_env_var_num("device_memory_info", envp, (seL4_Word*)device_memory_info_out);
 }
+
+
+bool tailspring_get_system_info(char *envp[], TailspringSystemInfo** system_info_out) {
+    return get_env_var_num("system_info", envp, (seL4_Word*)system_info_out);
+}

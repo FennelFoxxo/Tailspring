@@ -27,7 +27,7 @@ typedef seL4_Error (*MapFuncType)(CapOperation* cap_op, seL4_Word first_empty_sl
 
 enum CapOperationType { CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, BINARY_CHUNK_LOAD_OP, TCB_SETUP_OP,
                         MAP_FRAME_OP, RETYPE_LEFTOVER_GP_UNTYPEDS_OP, MOVE_DEVICE_UNTYPEDS_OP,
-                        PASS_GP_MEMORY_INFO_OP, PASS_DEVICE_MEMORY_INFO_OP, TCB_START_OP};
+                        PASS_GP_MEMORY_INFO_OP, PASS_DEVICE_MEMORY_INFO_OP, PASS_SYSTEM_INFO_OP, TCB_START_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -120,6 +120,13 @@ struct PassDeviceMemoryInfoOperation {
     uint32_t dest_vspace;
 };
 
+struct PassSystemInfoOperation {
+    seL4_Word dest_vaddr;
+    uint32_t frame;
+    uint32_t dest_vspace;
+    bool pass_framebuffer_info;
+};
+
 struct TCBStartOperation {
     uint32_t tcb;
 };
@@ -139,6 +146,7 @@ struct CapOperation {
         MoveDeviceUntypedsOperation move_device_untypeds_op;
         PassGPMemoryInfoOperation pass_gp_memory_info_op;
         PassDeviceMemoryInfoOperation pass_device_memory_info_op;
+        PassSystemInfoOperation pass_system_info_op;
         TCBStartOperation tcb_start_op;
     };
 };

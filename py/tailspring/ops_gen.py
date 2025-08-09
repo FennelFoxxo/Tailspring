@@ -101,7 +101,7 @@ def gen_tcb_start_ops(ctx: Context):
 def sort_ops_list(ctx: Context):
     op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.BinaryChunkLoadOperation, op_types.MapFrameOperation,
                 op_types.TCBSetupOperation, op_types.RetypeLeftoverGPUntypedsOperation, op_types.MoveDeviceUntypedsOperation, op_types.PassGPMemoryInfoOperation,
-                op_types.PassDeviceMemoryInfoOperation, op_types.TCBStartOperation]
+                op_types.PassDeviceMemoryInfoOperation, op_types.PassSystemInfoOperation, op_types.TCBStartOperation]
 
     def sort_func(e):
         # Create ops always go first, sorted by greatest size first
