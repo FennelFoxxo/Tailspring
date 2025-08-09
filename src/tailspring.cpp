@@ -387,7 +387,7 @@ bool doMoveDeviceUntypedsOp(CapOperation* cap_op) {
                                             seL4_WordBits
         );
         if (error != seL4_NoError) return false;
-        dest_slot--;
+        dest_slot++;
     }
     
     return true;
