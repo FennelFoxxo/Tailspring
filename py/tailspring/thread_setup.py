@@ -156,6 +156,10 @@ def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
     reserve_gp_memory_info_frame = any(thread.cspace.gp_untypeds_start is not None for thread in threads_sharing_vspace)
     gp_memory_info_addr = 0
 
+    # Check if any threads in this vspace need to be passed device_memory_info
+    reserve_device_memory_info_frame = any(thread.cspace.device_untypeds_start is not None for thread in threads_sharing_vspace)
+    device_memory_info_addr = 0
+
     # Get the last address used in the vspace for mapping segments (everything after this should be free)
     last_chunk_vaddr = max([chunk.dest_vaddr_aligned + chunk.total_length_with_padding for chunk in vspace.binary_chunks])
     assert (last_chunk_vaddr % ctx.page_size == 0)
@@ -177,6 +181,17 @@ def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
 
             # Only one gp memory info frame is needed per vspace
             reserve_gp_memory_info_frame = False
+
+        if reserve_device_memory_info_frame:
+            # Use one page for device memory info
+            device_memory_info_addr = addr_ptr
+            create_device_memory_info_frame(thread, device_memory_info_addr, ctx)
+
+            # Move up one page for the memory info frame itself, and another to create a gap in between
+            addr_ptr += ctx.page_size * 2
+
+            # Only one device memory info frame is needed per vspace
+            reserve_device_memory_info_frame = False
 
         # Round stack size up to the nearest multiple of the page size and move addr_ptr to the top of the stack
         thread.stack_size += -thread.stack_size % ctx.page_size
@@ -203,6 +218,9 @@ def set_shared_vspace_thread_values(vspace: ts_types.VSpace, ctx: Context):
         if thread.cspace.gp_untypeds_start is not None:
             thread.envps.append(f"gp_memory_info={gp_memory_info_addr}")
 
+        if thread.cspace.device_untypeds_start is not None:
+            thread.envps.append(f"device_memory_info={device_memory_info_addr}")
+
         # Now that we know where everything is placed in memory, we can initialize the values on the stack that the seL4 runtime expects
         init_stack_for_thread(thread, ctx)
 
@@ -213,6 +231,18 @@ def create_gp_memory_info_frame(thread: ts_types.Thread, vaddr: int, ctx: Contex
     ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
 
     ctx.ops_list.append(op_types.PassGPMemoryInfoOperation(dest_vaddr=vaddr, frame=frame, dest_vspace=thread.vspace))
+
+    # Make sure paging structures are created to cover this frame
+    paging_structure_for_vspace = ctx.paging_structures[thread.vspace.name]
+    paging_structure_for_vspace.create_children_to_cover_range(Range(vaddr, vaddr + ctx.page_size))
+
+
+def create_device_memory_info_frame(thread: ts_types.Thread, vaddr: int, ctx: Context):
+    frame = ts_types.Cap(f"{thread.tcb.name}_device_memory_info_frame", ts_enums.CapType.frame)
+    ctx.cap_addresses.append(frame)
+    ctx.ops_list.append(op_types.CapCreateOperation(dest=frame, size_bits=ctx.page_size_bits))
+
+    ctx.ops_list.append(op_types.PassDeviceMemoryInfoOperation(dest_vaddr=vaddr, frame=frame, dest_vspace=thread.vspace))
 
     # Make sure paging structures are created to cover this frame
     paging_structure_for_vspace = ctx.paging_structures[thread.vspace.name]

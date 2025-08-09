@@ -2,7 +2,6 @@
 #include "tailspring_gen_config.hpp"
 
 // Size of general purpose array to keep track of non-device untypeds
-#define GP_UNTYPED_ARRAY_SIZE 100
 
 seL4_BootInfo* boot_info = NULL;
 seL4_Word num_empty_slots = 0;
@@ -12,12 +11,15 @@ seL4_CPtr first_untyped = 0;
 seL4_Word num_untypeds = 0;
 seL4_Word num_gp_untypeds = 0;
 seL4_Word num_device_untypeds = 0;
-UntypedInfo gp_untyped_array[GP_UNTYPED_ARRAY_SIZE];
+
+UntypedInfo gp_untyped_array[TAILSPRING_MEM_NUM_ENTRIES];
+UntypedInfo device_untyped_array[TAILSPRING_MEM_NUM_ENTRIES];
 
 // Free page that can be unmapped
 unsigned char FREE_PAGE[1 << seL4_PageBits] __attribute__((aligned(1 << seL4_PageBits)));
 
-GPMemoryInfo gp_memory_info;
+TailspringMemoryInfo gp_memory_info = {};
+TailspringMemoryInfo device_memory_info = {};
 
 void halt() __attribute__((noreturn));
 void halt() {
@@ -32,15 +34,19 @@ seL4_CPtr getFrameForAddr(seL4_Word addr) {
 
 void loadUntypedInfo(seL4_Word untyped_index) {
     seL4_UntypedDesc* untyped = &boot_info->untypedList[untyped_index];
+    UntypedInfo* dest_info;
     if (untyped->isDevice) {
-        num_device_untypeds++;
+        if (num_device_untypeds >= TAILSPRING_MEM_NUM_ENTRIES) return;
+        dest_info = &device_untyped_array[num_device_untypeds++];
     } else {
-        if (num_gp_untypeds < GP_UNTYPED_ARRAY_SIZE) {
-            gp_untyped_array[num_gp_untypeds].bytes_left = 1llu << untyped->sizeBits;
-            gp_untyped_array[num_gp_untypeds].cptr = untyped_index + first_untyped;
-            num_gp_untypeds++;
-        }
+        if (num_gp_untypeds >= TAILSPRING_MEM_NUM_ENTRIES) return;
+        dest_info = &gp_untyped_array[num_gp_untypeds++];
     }
+    
+    dest_info->paddr = untyped->paddr;
+    dest_info->bytes_left = 1 << untyped->sizeBits;
+    dest_info->cptr = untyped_index + first_untyped;
+    dest_info->original_size_bits = untyped->sizeBits;
 }
 
 void loadBootInfo() {
@@ -92,13 +98,21 @@ void debugPrintOp(const CapOperation* c) {
             printf("Map frame (frame=%u) (vspace=%u) (vaddr=%lx)\n",
                 c->map_frame_op.frame, c->map_frame_op.vspace, c->map_frame_op.vaddr);
             break;
-        case PASS_GP_UNTYPEDS_OP:
-            printf("Pass general-purpose untypeds (cnode dest=%u) (start slot=%u) (end slot=%u)\n",
-                c->pass_gp_untypeds_op.cnode_dest, c->pass_gp_untypeds_op.start_slot, c->pass_gp_untypeds_op.end_slot);
+        case RETYPE_LEFTOVER_GP_UNTYPEDS_OP:
+            printf("Retype leftover general-purpose untypeds (cnode dest=%u) (start slot=%u) (end slot=%u)\n",
+                c->retype_leftover_gp_untypeds_op.cnode_dest, c->retype_leftover_gp_untypeds_op.start_slot, c->retype_leftover_gp_untypeds_op.end_slot);
+            break;
+        case MOVE_DEVICE_UNTYPEDS_OP:
+            printf("Move device untypeds (cnode dest=%u) (start slot=%u) (end slot=%u)\n",
+                c->move_device_untypeds_op.cnode_dest, c->move_device_untypeds_op.start_slot, c->move_device_untypeds_op.end_slot);
             break;
         case PASS_GP_MEMORY_INFO_OP:
             printf("Pass general-purpose memory info (dest vaddr=%lu) (dest_vspace=%u) (frame=%u)\n",
                 c->pass_gp_memory_info_op.dest_vaddr, c->pass_gp_memory_info_op.dest_vspace, c->pass_gp_memory_info_op.frame);
+            break;
+        case PASS_DEVICE_MEMORY_INFO_OP:
+            printf("Pass device memory info (dest vaddr=%lu) (dest_vspace=%u) (frame=%u)\n",
+                c->pass_device_memory_info_op.dest_vaddr, c->pass_device_memory_info_op.dest_vspace, c->pass_device_memory_info_op.frame);
             break;
         case TCB_START_OP:
             printf("TCB start (tcb=%u)\n",
@@ -244,7 +258,7 @@ bool doMapFrameOp(CapOperation* cap_op) {
     return (error == seL4_NoError);
 }
 
-bool doPassGPUntypedsOp(CapOperation* cap_op) {
+bool doRetypeLeftoverGPUntypedsOp(CapOperation* cap_op) {
     // In every untyped, there will be some amount of memory left over, say 13 bytes to make it simple.
     // We need to break the leftover memory into smaller untypeds (if we passed every untypeds as-is to the user process, it could
     // just revoke all the memory and destroy every object tailspring created).
@@ -253,23 +267,23 @@ bool doPassGPUntypedsOp(CapOperation* cap_op) {
     // we retype it into a new untyped of size 2^n.
 
     // How many blocks (new untypeds) could be created from leftover memory?
-    seL4_Word total_blocks = 0;
+    size_t total_blocks = 0;
     for (int i = 0; i < num_gp_untypeds; i++) {
         total_blocks += __builtin_popcountll(gp_untyped_array[i].bytes_left);
     }
 
-    uint32_t start_slot = cap_op->pass_gp_untypeds_op.start_slot;
-    uint32_t end_slot = cap_op->pass_gp_untypeds_op.end_slot;
-    uint32_t num_slots = end_slot - start_slot;
+    seL4_Word start_slot = cap_op->retype_leftover_gp_untypeds_op.start_slot;
+    seL4_Word end_slot = cap_op->retype_leftover_gp_untypeds_op.end_slot;
+    size_t num_slots = end_slot - start_slot;
 
     // Limit the number of slots to how many untypeds we can keep track of
-    if (num_slots > GP_MEMORY_INFO_NUM_ENTRIES) {
-        num_slots = GP_MEMORY_INFO_NUM_ENTRIES;
+    if (num_slots > TAILSPRING_MEM_NUM_ENTRIES) {
+        num_slots = TAILSPRING_MEM_NUM_ENTRIES;
     }
 
     // We iterate from smallest to biggest, but we want to sort the memory so we pass the biggest untyped first. Also, there might not be
     // enough space in the dest cnode to store all the untypeds, so we need to skip a bit before starting to retype
-    uint32_t skip, dest_slot;
+    seL4_Word skip, dest_slot;
 
     if (total_blocks > num_slots) {
         // More potential blocks than we have space for
@@ -298,25 +312,55 @@ bool doPassGPUntypedsOp(CapOperation* cap_op) {
 
                 // Keep track of each untyped, making sure to go in reverse order
                 // dest_slot - start_slot tells us the "index" of the untyped being processed
-                gp_memory_info.untyped_size_bits[dest_slot - start_slot] = bit_pos;
-                gp_memory_info.num_untypeds++;
+                TailspringMemoryEntry* entry = &gp_memory_info.entries[dest_slot - start_slot];
+                entry->size_bits = bit_pos;
+                entry->paddr = 0; // Don't care about paddr for GP memory
+                gp_memory_info.num_entries++;
 
                 // Now we can start retyping
-                seL4_Error error = seL4_Untyped_Retype(
-                                    gp_untyped_array[i].cptr,
-                                    seL4_UntypedObject,
-                                    bit_pos, // Size bits
-                                    seL4_CapInitThreadCNode,
-                                    first_empty_slot + cap_op->pass_gp_untypeds_op.cnode_dest,
-                                    cap_op->pass_gp_untypeds_op.cnode_depth,
-                                    dest_slot,
-                                    1);
+                seL4_Error error = seL4_Untyped_Retype( gp_untyped_array[i].cptr,
+                                                        seL4_UntypedObject,
+                                                        bit_pos, // Size bits
+                                                        seL4_CapInitThreadCNode,
+                                                        first_empty_slot + cap_op->retype_leftover_gp_untypeds_op.cnode_dest,
+                                                        cap_op->retype_leftover_gp_untypeds_op.cnode_depth,
+                                                        dest_slot,
+                                                        1);
                 if (error != seL4_NoError) return false;
                 dest_slot--;
             }
         }
     }
 
+    return true;
+}
+
+bool doMoveDeviceUntypedsOp(CapOperation* cap_op) {
+    seL4_CPtr start_slot = cap_op->move_device_untypeds_op.start_slot;
+    seL4_CPtr end_slot = cap_op->move_device_untypeds_op.end_slot;
+    size_t num_slots = end_slot - start_slot;
+    
+    // Limit the number of untypeds to be moved to the size of the dest region in the dest cnode
+    size_t num_moves = (num_slots < num_device_untypeds ? num_slots : num_device_untypeds);
+    device_memory_info.num_entries = num_moves;
+    
+    seL4_CPtr dest_slot = start_slot; // Start at the beginning of the region
+    for (size_t i = 0; i < num_moves; i++) {
+        TailspringMemoryEntry* entry = &device_memory_info.entries[i];
+        entry->size_bits = device_untyped_array[i].original_size_bits;
+        entry->paddr = device_untyped_array[i].paddr;
+        
+        seL4_Error error = seL4_CNode_Move( first_empty_slot + cap_op->move_device_untypeds_op.cnode_dest,
+                                            dest_slot,
+                                            cap_op->move_device_untypeds_op.cnode_depth,
+                                            seL4_CapInitThreadCNode,
+                                            device_untyped_array[i].cptr,
+                                            seL4_WordBits
+        );
+        if (error != seL4_NoError) return false;
+        dest_slot--;
+    }
+    
     return true;
 }
 
@@ -346,6 +390,32 @@ bool doPassGPMemoryInfoOp(CapOperation* cap_op) {
     return true;
 }
 
+bool doPassDeviceMemoryInfoOp(CapOperation* cap_op) {
+    seL4_Error error;
+    seL4_CPtr dest_frame = first_empty_slot + cap_op->pass_device_memory_info_op.frame;
+
+    // Take the frame that will hold the device memory info and map it into our vspace so we can write to it
+    error = wrapperPageMap( dest_frame,
+                            seL4_CapInitThreadVSpace,
+                            (seL4_Word)FREE_PAGE);
+    if (error != seL4_NoError) return false;
+
+    // Then copy the device memory info into the frame
+    memcpy(FREE_PAGE, &device_memory_info, sizeof(device_memory_info));
+
+
+    // Unmap the frame and map it in the destination vspace
+    error = wrapperPageUnmap(dest_frame);
+    if (error != seL4_NoError) return false;
+
+    error = wrapperPageMap( dest_frame,
+                            first_empty_slot + cap_op->pass_device_memory_info_op.dest_vspace,
+                            cap_op->pass_device_memory_info_op.dest_vaddr);
+    if (error != seL4_NoError) return false;
+
+    return true;
+}
+
 bool doTCBStartOp(CapOperation* cap_op) {
     seL4_Error error = seL4_TCB_Resume(first_empty_slot + cap_op->tcb_start_op.tcb);
     return (error == seL4_NoError);
@@ -369,10 +439,14 @@ bool dispatchOperation(CapOperation* cap_op) {
             return doTCBSetupOp(cap_op);
         case MAP_FRAME_OP:
             return doMapFrameOp(cap_op);
-        case PASS_GP_UNTYPEDS_OP:
-            return doPassGPUntypedsOp(cap_op);
+        case RETYPE_LEFTOVER_GP_UNTYPEDS_OP:
+            return doRetypeLeftoverGPUntypedsOp(cap_op);
+        case MOVE_DEVICE_UNTYPEDS_OP:
+            return doMoveDeviceUntypedsOp(cap_op);
         case PASS_GP_MEMORY_INFO_OP:
             return doPassGPMemoryInfoOp(cap_op);
+        case PASS_DEVICE_MEMORY_INFO_OP:
+            return doPassDeviceMemoryInfoOp(cap_op);
         case TCB_START_OP:
             return doTCBStartOp(cap_op);
         default:

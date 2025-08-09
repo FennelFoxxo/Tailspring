@@ -11,7 +11,8 @@ def gen_cap_ops_list(ctx: Context):
     gen_paging_ops(ctx)
     gen_binary_chunk_load_ops(ctx)
     gen_tcb_setup_ops(ctx)
-    gen_pass_gp_untypeds_ops(ctx)
+    gen_retype_leftover_gp_untypeds_ops(ctx)
+    gen_move_device_untypeds_ops(ctx)
     gen_tcb_start_ops(ctx)
 
     sort_ops_list(ctx)
@@ -77,10 +78,17 @@ def gen_tcb_setup_ops(ctx: Context):
         ctx.ops_list.append(tcb_setup_op)
 
 
-def gen_pass_gp_untypeds_ops(ctx: Context):
+def gen_retype_leftover_gp_untypeds_ops(ctx: Context):
     if ctx.gp_untypeds_cnode:
         cnode_dest = ctx.gp_untypeds_cnode
-        op = op_types.PassGPUntypedsOperation(cnode_dest=cnode_dest, start_slot=cnode_dest.gp_untypeds_start, end_slot=cnode_dest.gp_untypeds_end, cnode_depth=cnode_dest.guard + cnode_dest.size)
+        op = op_types.RetypeLeftoverGPUntypedsOperation(cnode_dest=cnode_dest, start_slot=cnode_dest.gp_untypeds_start, end_slot=cnode_dest.gp_untypeds_end, cnode_depth=cnode_dest.guard + cnode_dest.size)
+        ctx.ops_list.append(op)
+
+
+def gen_move_device_untypeds_ops(ctx: Context):
+    if ctx.device_untypeds_cnode:
+        cnode_dest = ctx.device_untypeds_cnode
+        op = op_types.MoveDeviceUntypedsOperation(cnode_dest=cnode_dest, start_slot=cnode_dest.device_untypeds_start, end_slot=cnode_dest.device_untypeds_end, cnode_depth=cnode_dest.guard + cnode_dest.size)
         ctx.ops_list.append(op)
 
 
@@ -91,9 +99,9 @@ def gen_tcb_start_ops(ctx: Context):
 
 
 def sort_ops_list(ctx: Context):
-    op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.BinaryChunkLoadOperation,
-                op_types.MapFrameOperation, op_types.TCBSetupOperation, op_types.PassGPUntypedsOperation, op_types.PassGPMemoryInfoOperation,
-                op_types.TCBStartOperation]
+    op_order = [op_types.MintOperation, op_types.MapOperation, op_types.CopyOperation, op_types.BinaryChunkLoadOperation, op_types.MapFrameOperation,
+                op_types.TCBSetupOperation, op_types.RetypeLeftoverGPUntypedsOperation, op_types.MoveDeviceUntypedsOperation, op_types.PassGPMemoryInfoOperation,
+                op_types.PassDeviceMemoryInfoOperation, op_types.TCBStartOperation]
 
     def sort_func(e):
         # Create ops always go first, sorted by greatest size first

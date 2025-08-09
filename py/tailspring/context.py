@@ -39,6 +39,8 @@ class Context:
     # after tailspring is done allocating objects. Only one cnode can be set for this
     gp_untypeds_cnode: ts_types.CNode = None
 
+    device_untypeds_cnode: ts_types.CNode = None  # Same as above but for device memory
+
     # List of operations
     ops_list: List[op_types.Operation] = field(default_factory=list)
 

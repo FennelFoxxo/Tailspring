@@ -77,29 +77,44 @@ def create_cnode_wrappers(ctx: Context):
         cap_dict = dict(zip(cap_indexes, caps))
         cnode.caps = cap_dict
 
-        # This cnode is designated to hold leftover general purpose untypeds (non-device memory)
+        # Now we can start handling reserved slots for GP and device untypeds
+        # First, test to make sure the start of the regions don't overlap with other caps or each other
         if 'gp_untypeds' in cnode_info:
-            gp_untypeds_start = cnode_info['gp_untypeds']
-            # Make sure another cnode hasn't already been set as the leftover untypeds cnode
+            cnode.gp_untypeds_start = cnode_info['gp_untypeds']
+            if cnode.gp_untypeds_start in cap_indexes:
+                raise ValueError(f"gp_untypeds conflicts with assigned slot {cnode.gp_untypeds_start} in cnode {cnode_name}")
             if ctx.gp_untypeds_cnode is not None:
-                raise ValueError(f"Duplicate leftover_untypeds_start found at cnode {cnode_name}")
-
-            if gp_untypeds_start in cap_indexes:
-                raise ValueError(f"leftover_untypeds_start conflicts with assigned slot {gp_untypeds_start} in cnode {cnode_name}")
-
+                raise ValueError(f"Duplicate gp_untypeds found at cnode {cnode_name}")
             ctx.gp_untypeds_cnode = cnode
-            cnode.gp_untypeds_start = gp_untypeds_start
+            cap_indexes.append(cnode.gp_untypeds_start)
+        if 'device_untypeds' in cnode_info:
+            cnode.device_untypeds_start = cnode_info['device_untypeds']
+            if cnode.device_untypeds_start in cap_indexes:
+                raise ValueError(f"device_untypeds_start conflicts with assigned slot {cnode.device_untypeds_start} in cnode {cnode_name}")
+            if ctx.device_untypeds_cnode is not None:
+                raise ValueError(f"Duplicate device_untypeds_start found at cnode {cnode_name}")
+            ctx.device_untypeds_cnode = cnode
+            cap_indexes.append(cnode.device_untypeds_start)
 
-            # Find upper bound of untypeds
-            # Lower bound is inclusive, upper bound is exclusive
-            assigned_slots_above_start = [e for e in cap_indexes if e > gp_untypeds_start]
-            if assigned_slots_above_start:
+        # Now, find the upper bound of the untyped region
+        # Lower bound is inclusive, upper bound is exclusive
+        if cnode.gp_untypeds_start is not None:
+            used_slots_above_start = [e for e in cap_indexes if e > cnode.gp_untypeds_start]
+            if used_slots_above_start:
                 # If there are assigned slots above leftover_untypeds_start, the lowest slot sets the upper bound for the range
-                cnode.gp_untypeds_end = min(assigned_slots_above_start)
+                cnode.gp_untypeds_end = min(used_slots_above_start)
             else:
                 # Else, the upper bound of the range is limited by the size of the cnode
                 cnode.gp_untypeds_end = 1 << size
 
+        if cnode.device_untypeds_start is not None:
+            used_slots_above_start = [e for e in cap_indexes if e > cnode.device_untypeds_start]
+            if used_slots_above_start:
+                # If there are assigned slots above leftover_untypeds_start, the lowest slot sets the upper bound for the range
+                cnode.device_untypeds_end = min(used_slots_above_start)
+            else:
+                # Else, the upper bound of the range is limited by the size of the cnode
+                cnode.device_untypeds_end = 1 << size
 
 # Process vspaces
 def create_vspace_wrappers(ctx: Context):

@@ -3,13 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <stdio.h>
 
 int tailspring_lib_test_int = 12345;
 
 static bool starts_with(const char *str, const char *prefix) {
     return strncmp(prefix, str, strlen(prefix)) == 0;
 }
+
 
 // Returns the value of the environment variable, or 0 if not found
 static bool get_env_var_str(const char *target_name, char *envp[], const char** value_out) {
@@ -53,10 +53,15 @@ static bool get_env_var_num(const char *target_name, char *envp[], seL4_Word* va
 
 }
 
+
 bool tailspring_get_ipc_buffer_addr(char *envp[], seL4_IPCBuffer** ipc_buffer_addr_out) {
     return get_env_var_num("ipc_buffer", envp, (seL4_Word*)ipc_buffer_addr_out);
 }
 
-bool tailspring_get_gp_memory_info(char *envp[], GPMemoryInfo** gp_memory_info_out) {
+bool tailspring_get_gp_memory_info(char *envp[], TailspringMemoryInfo** gp_memory_info_out) {
     return get_env_var_num("gp_memory_info", envp, (seL4_Word*)gp_memory_info_out);
+}
+
+bool tailspring_get_device_memory_info(char *envp[], TailspringMemoryInfo** device_memory_info_out) {
+    return get_env_var_num("device_memory_info", envp, (seL4_Word*)device_memory_info_out);
 }

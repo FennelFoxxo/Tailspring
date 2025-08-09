@@ -3,12 +3,22 @@
 
 #pragma once
 
-#define WORDS_IN_PAGE ((1 << seL4_PageBits) / sizeof(seL4_Word))
+typedef struct {
+    seL4_Word size_bits;
+    seL4_Word paddr;
+} TailspringMemoryEntry;
+
+#define TAILSPRING_PAGE_SIZE (1 << seL4_PageBits)
+#define TAILSPRING_MEM_NUM_ENTRIES ((TAILSPRING_PAGE_SIZE - sizeof(seL4_Word)) / sizeof(TailspringMemoryEntry))
 
 // Fills one page
 typedef struct {
-    seL4_Word num_untypeds;
-    seL4_Word untyped_size_bits[WORDS_IN_PAGE - 1];
-} GPMemoryInfo;
+    seL4_Word num_entries;
+    TailspringMemoryEntry entries[TAILSPRING_MEM_NUM_ENTRIES];
+} TailspringMemoryInfo;
 
-#define GP_MEMORY_INFO_NUM_ENTRIES (sizeof(GPMemoryInfo::untyped_size_bits) / sizeof(seL4_Word))
+#ifdef __cplusplus
+static_assert(sizeof(TailspringMemoryInfo) <= TAILSPRING_PAGE_SIZE);
+#else
+_Static_assert(sizeof(TailspringMemoryInfo) <= TAILSPRING_PAGE_SIZE);
+#endif

@@ -167,7 +167,7 @@ class MapFrameOperation(Operation):
                                             )]
 
 
-class PassGPUntypedsOperation(Operation):
+class RetypeLeftoverGPUntypedsOperation(Operation):
     def __init__(self, cnode_dest: ts_types.CNode, start_slot: int, end_slot: int, cnode_depth: int):
         self.cnode_dest = cnode_dest
         self.start_slot = start_slot
@@ -175,7 +175,23 @@ class PassGPUntypedsOperation(Operation):
         self.cnode_depth = cnode_depth
 
     def format_as_C_entry(self) -> List[str]:
-        return [self.format_args_as_C_entry('pass_gp_untypeds_op',
+        return [self.format_args_as_C_entry('retype_leftover_gp_untypeds_op',
+                                            cnode_dest=self.cnode_dest.address,
+                                            start_slot=self.start_slot,
+                                            end_slot=self.end_slot,
+                                            cnode_depth=self.cnode_depth
+                                            )]
+
+
+class MoveDeviceUntypedsOperation(Operation):
+    def __init__(self, cnode_dest: ts_types.CNode, start_slot: int, end_slot: int, cnode_depth: int):
+        self.cnode_dest = cnode_dest
+        self.start_slot = start_slot
+        self.end_slot = end_slot
+        self.cnode_depth = cnode_depth
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('move_device_untypeds_op',
                                             cnode_dest=self.cnode_dest.address,
                                             start_slot=self.start_slot,
                                             end_slot=self.end_slot,
@@ -191,6 +207,20 @@ class PassGPMemoryInfoOperation(Operation):
 
     def format_as_C_entry(self) -> List[str]:
         return [self.format_args_as_C_entry('pass_gp_memory_info_op',
+                                            dest_vaddr=self.dest_vaddr,
+                                            frame=self.frame.address,
+                                            dest_vspace=self.dest_vspace.address
+                                            )]
+
+
+class PassDeviceMemoryInfoOperation(Operation):
+    def __init__(self, dest_vaddr: int, frame: ts_types.Cap, dest_vspace: ts_types.VSpace):
+        self.dest_vaddr = dest_vaddr
+        self.frame = frame
+        self.dest_vspace = dest_vspace
+
+    def format_as_C_entry(self) -> List[str]:
+        return [self.format_args_as_C_entry('pass_device_memory_info_op',
                                             dest_vaddr=self.dest_vaddr,
                                             frame=self.frame.address,
                                             dest_vspace=self.dest_vspace.address

@@ -26,7 +26,8 @@ struct CapOperation;
 typedef seL4_Error (*MapFuncType)(CapOperation* cap_op, seL4_Word first_empty_slot);
 
 enum CapOperationType { CREATE_OP, MINT_OP, COPY_OP, MUTATE_OP, MAP_OP, BINARY_CHUNK_LOAD_OP, TCB_SETUP_OP,
-                        MAP_FRAME_OP, PASS_GP_UNTYPEDS_OP, PASS_GP_MEMORY_INFO_OP, TCB_START_OP};
+                        MAP_FRAME_OP, RETYPE_LEFTOVER_GP_UNTYPEDS_OP, MOVE_DEVICE_UNTYPEDS_OP,
+                        PASS_GP_MEMORY_INFO_OP, PASS_DEVICE_MEMORY_INFO_OP, TCB_START_OP};
 
 struct CapCreateOperation {
     seL4_Word cap_type;
@@ -90,7 +91,15 @@ struct MapFrameOperation {
 
 // This operation takes all the system-provided untypeds, breaks the leftover memory in each untyped (memory not reserved by tailspring)
 // into separate, smaller untypeds, and puts these in the designated cnode
-struct PassGPUntypedsOperation {
+struct RetypeLeftoverGPUntypedsOperation {
+    uint32_t cnode_dest;
+    uint32_t start_slot;
+    uint32_t end_slot;
+    uint8_t cnode_depth;
+};
+
+// Moves device untypeds into the designated cnode
+struct MoveDeviceUntypedsOperation {
     uint32_t cnode_dest;
     uint32_t start_slot;
     uint32_t end_slot;
@@ -100,6 +109,12 @@ struct PassGPUntypedsOperation {
 // Fills a frame with info about how the general-purpose memory was broken into smaller untypeds and placed in the designated cnode,
 // then maps the frame into the target vspace at a given address
 struct PassGPMemoryInfoOperation {
+    seL4_Word dest_vaddr;
+    uint32_t frame;
+    uint32_t dest_vspace;
+};
+
+struct PassDeviceMemoryInfoOperation {
     seL4_Word dest_vaddr;
     uint32_t frame;
     uint32_t dest_vspace;
@@ -120,15 +135,19 @@ struct CapOperation {
         BinaryChunkLoadOperation binary_chunk_load_op;
         TCBSetupOperation tcb_setup_op;
         MapFrameOperation map_frame_op;
-        PassGPUntypedsOperation pass_gp_untypeds_op;
+        RetypeLeftoverGPUntypedsOperation retype_leftover_gp_untypeds_op;
+        MoveDeviceUntypedsOperation move_device_untypeds_op;
         PassGPMemoryInfoOperation pass_gp_memory_info_op;
+        PassDeviceMemoryInfoOperation pass_device_memory_info_op;
         TCBStartOperation tcb_start_op;
     };
 };
 
 struct UntypedInfo {
+    seL4_Word paddr;
     seL4_Word bytes_left;
     seL4_CPtr cptr;
+    char original_size_bits;
 };
 
 // Lowest vaddr mapped in this thread's vspace. Whatever page is here will be at the start

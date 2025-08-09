@@ -28,6 +28,8 @@ class CNode(Cap):
     caps: Optional[Dict[int, Cap]] = None
     gp_untypeds_start: Optional[int] = None
     gp_untypeds_end: Optional[int] = None
+    device_untypeds_start: Optional[int] = None
+    device_untypeds_end: Optional[int] = None
 
 
 class CapAddresses:
